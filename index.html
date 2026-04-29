@@ -1688,8 +1688,6 @@
 
         (async function init() {
             console.log('[init] starting, configured:', isConfigured());
-            render();
-            bindQuadrantDropEvents();
             if (isConfigured()) {
                 connectionAttempted = true;
                 var config = loadConfig();
@@ -1708,13 +1706,13 @@
                         console.error('[init] load failed:', e.message);
                         showStatus('加载数据失败: ' + e.message, true);
                     }
-                    render();
-                    bindQuadrantDropEvents();
                     hideLoading();
                 } else {
                     console.error('[init] initApi failed');
                 }
             }
+            render();
+            bindQuadrantDropEvents();
             console.log('[init] completed');
         })();
     </script>
