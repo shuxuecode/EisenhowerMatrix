@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四象限工作法 - 艾森豪威尔矩阵</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: sans-serif;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .header { text-align: center; margin-bottom: 20px; }
+        
+        h1 {
+            color: #fff;
+            font-size: 2rem;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+        }
+        
+        .subtitle { color: #e94560; font-size: 1rem; margin-top: 5px; }
+
+        .back-link {
+            color: #ffd93d;
+            font-size: 0.9rem;
+            text-decoration: none;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .add-bar {
+            display: flex;
+            gap: 10px;
+            max-width: 1000px;
+            width: 100%;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .add-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 18px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            backdrop-filter: blur(10px);
+            outline: none;
+        }
+        
+        .add-bar input:focus { border-color: #ffd93d; }
+        
+        .add-bar input::placeholder { color: rgba(255,255,255,0.5); }
+        
+        .add-bar select {
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            backdrop-filter: blur(10px);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .add-bar select option { background: #16213e; color: #fff; }
+
+        .btn-add {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #4d96ff, #6bcb77);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        .btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(77,150,255,0.4); }
+        
+        .matrix-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+        
+        .quadrant {
+            border-radius: 18px;
+            padding: 25px 20px 20px;
+            height: 400px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .quadrant-header {
+            flex-shrink: 0;
+        }
+
+        .quadrant-body {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .quadrant-body::-webkit-scrollbar { width: 6px; }
+        .quadrant-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .quadrant-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+        .quadrant-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+        
+        .quadrant:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
+
+        .q1 { background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%); grid-column: 2; grid-row: 1; }
+        .q2 { background: linear-gradient(135deg, #4d96ff 0%, #6bcb77 100%); grid-column: 1; grid-row: 1; }
+        .q3 { background: linear-gradient(135deg, #ff9f43 0%, #ffd93d 100%); grid-column: 2; grid-row: 2; }
+        .q4 { background: linear-gradient(135deg, #9b59b6 0%, #e056fd 100%); grid-column: 1; grid-row: 2; }
+        
+        .quadrant-number {
+            position: absolute;
+            top: 10px;
+            right: 70px;
+            font-size: 4.5rem;
+            font-weight: bold;
+            opacity: 0.15;
+            color: #fff;
+        }
+        
+        .btn-quadrant-add {
+            position: absolute;
+            top: 14px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 1.6rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+            line-height: 1;
+        }
+
+        .btn-quadrant-add:hover {
+            background: rgba(255,255,255,0.5);
+            transform: scale(1.1);
+        }
+
+        .inline-input-wrap {
+            display: none;
+            margin-bottom: 10px;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .inline-input-wrap.show {
+            display: flex;
+        }
+
+        .inline-input-wrap .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .inline-input-wrap input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .inline-input-wrap input::placeholder { color: rgba(255,255,255,0.5); }
+        .inline-input-wrap input:focus { border-color: #ffd93d; }
+
+        .inline-input-wrap button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.3);
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .inline-input-wrap button:hover { background: rgba(255,255,255,0.5); }
+        
+.quadrant-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 8px;
+            display: inline;
+        }
+
+        .quadrant-subtitle-inline {
+            font-size: 1rem;
+            color: rgba(255,255,255,0.8);
+            font-weight: bold;
+        }
+        
+        .quadrant-subtitle {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .quadrant-action {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 12px;
+        }
+        
+        .task-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: rgba(255,255,255,0.2);
+            padding: 14px 16px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.2s ease;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .task-item:hover { background: rgba(255,255,255,0.3); }
+        
+        .task-item[draggable="true"] { cursor: grab; }
+        
+        .task-item.dragging { opacity: 0.4; transform: scale(0.95); }
+        
+        .task-item.drag-over-item { border-top: 2px solid rgba(255,255,255,0.8); }
+
+        .quadrant.drag-over { box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 20px 40px rgba(0,0,0,0.5); transform: scale(1.02); }
+        
+        .task-item.done { opacity: 0.5; }
+        
+        .task-item.done .task-text { text-decoration: line-through; }
+
+        .task-check {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .task-index {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.75rem;
+            font-weight: bold;
+            flex-shrink: 0;
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        .task-check:hover { background: rgba(255,255,255,0.3); }
+        
+        .task-item.done .task-check {
+            background: rgba(255,255,255,0.8);
+            border-color: #fff;
+        }
+
+        .task-item.done .task-check::after {
+            content: '✓';
+            color: #333;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .task-text {
+            color: #fff;
+            font-size: 1rem;
+            flex: 1;
+            line-height: 1.4;
+            word-break: break-word;
+            min-width: 0;
+        }
+
+        .task-title {
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .task-item.done .task-title { text-decoration: line-through; }
+
+        .task-content {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+            line-height: 1.4;
+            word-break: break-word;
+            margin-top: 6px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .task-item.expanded .task-content {
+            max-height: 200px;
+        }
+
+        .task-expand {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .task-expand:hover { background: rgba(255,255,255,0.4); }
+        
+        .task-item.expanded .task-expand { transform: rotate(180deg); }
+
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .edit-form input {
+            padding: 6px 10px;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.25);
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .edit-form input:focus { border-color: #ffd93d; }
+
+        .edit-form-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .edit-form-buttons button {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .btn-edit-save {
+            background: rgba(255,255,255,0.35);
+            color: #fff;
+        }
+
+        .btn-edit-save:hover { background: rgba(255,255,255,0.5); }
+
+        .btn-edit-cancel {
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.7);
+        }
+
+        .btn-edit-cancel:hover { background: rgba(255,255,255,0.25); }
+
+        .task-delete {
+            width: 26px;
+            height: 26px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        
+        .task-delete:hover { background: rgba(255,255,255,0.5); color: #fff; }
+
+        .empty-tip {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            margin-top: 25px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 12px 20px;
+            border-radius: 12px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat-count { color: #ffd93d; font-size: 1.5rem; font-weight: bold; }
+        .stat-label { color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-top: 3px; }
+
+        .clear-btn {
+            padding: 10px 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .clear-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .trash-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .trash-btn:hover {
+            background: rgba(255,255,255,0.25);
+            transform: scale(1.1);
+        }
+
+        .settings-btn {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255,255,255,0.25);
+            transform: scale(1.1);
+        }
+
+        .settings-btn.connected {
+            border-color: #6bcb77;
+        }
+
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            backdrop-filter: blur(3px);
+        }
+
+        .settings-overlay.show { display: block; }
+
+        .settings-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            background: rgba(22, 33, 62, 0.98);
+            border-radius: 18px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(20px);
+            z-index: 201;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .settings-panel.show { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .settings-panel h3 {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .conn-status {
+            font-size: 0.75rem;
+            font-weight: normal;
+            margin-left: 6px;
+        }
+
+        .conn-status.connected { color: #6bcb77; }
+
+        .conn-status.disconnected { color: #e94560; }
+
+        .settings-panel label {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 5px;
+            margin-top: 12px;
+        }
+
+        .settings-panel input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .settings-panel input:focus { border-color: #ffd93d; }
+
+        .settings-panel input::placeholder { color: rgba(255,255,255,0.4); }
+
+        .settings-panel .settings-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .settings-panel .btn-connect {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4d96ff, #6bcb77);
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .settings-panel .btn-connect:hover { opacity: 0.9; }
+
+        .settings-panel .btn-connect:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .settings-panel .btn-disconnect {
+            padding: 10px 14px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .settings-panel .btn-disconnect:hover { background: rgba(233,69,96,0.3); color: #fff; }
+
+        .settings-panel .status-msg {
+            color: #6bcb77;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        .settings-panel .status-msg.error {
+            color: #e94560;
+        }
+
+        .loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4d96ff, #6bcb77, #ffd93d);
+            z-index: 999;
+            transition: width 0.3s ease;
+            width: 0;
+        }
+
+        .loading-bar.active {
+            animation: loadingPulse 1.5s infinite;
+        }
+
+        @keyframes loadingPulse {
+            0% { width: 0; left: 0; }
+            50% { width: 70%; left: 15%; }
+            100% { width: 0; left: 100%; }
+        }
+
+        .trash-btn .trash-count {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #e94560;
+            color: #fff;
+            font-size: 0.7rem;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .trash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            backdrop-filter: blur(3px);
+        }
+
+        .trash-overlay.show { display: block; }
+
+        .trash-panel {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            width: 50vw;
+            max-height: 70vh;
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 18px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(20px);
+            z-index: 201;
+            display: none;
+            animation: slideUp 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .trash-panel::-webkit-scrollbar { width: 6px; }
+        .trash-panel::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .trash-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+        .trash-panel.show { display: block; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .trash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .trash-title {
+            color: rgba(255,255,255,0.7);
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .trash-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .trash-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.08);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            animation: slideIn 0.3s ease;
+            flex-wrap: wrap;
+        }
+
+        .trash-item:hover { background: rgba(255,255,255,0.12); }
+
+        .trash-title-text {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+            flex: 1;
+            text-decoration: line-through;
+        }
+
+        .trash-time {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .btn-restore {
+            padding: 4px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.7);
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .btn-restore:hover { background: rgba(255,255,255,0.3); color: #fff; }
+
+        .btn-trash-delete {
+            width: 22px;
+            height: 22px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .btn-trash-delete:hover { background: rgba(233,69,96,0.5); color: #fff; }
+
+        .trash-empty {
+            color: rgba(255,255,255,0.3);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5rem; }
+            .matrix-container { grid-template-columns: 1fr; }
+            .q1, .q2, .q3, .q4 { grid-column: 1; }
+            .q1 { grid-row: 1; }
+            .q2 { grid-row: 2; }
+            .q3 { grid-row: 3; }
+            .q4 { grid-row: 4; }
+            .quadrant { min-height: auto; }
+            body { padding: 15px 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="matrix-container">
+        <div class="quadrant q2" id="q2">
+            <div class="quadrant-header">
+                <div class="quadrant-number">II</div>
+                <button class="btn-quadrant-add" onclick="showInlineInput('q2')">+</button>
+                <div class="quadrant-title">✨ 重要不紧急 <span class="quadrant-subtitle-inline">价值最高，重点投入</span></div>
+                <div class="quadrant-action">📅 制定计划，安排时间专注完成</div>
+                <div class="inline-input-wrap" id="inline-q2">
+                    <div class="input-row">
+                        <input type="text" class="inline-title" placeholder="标题" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q2')" />
+                        <input type="text" class="inline-content" placeholder="内容（可选）" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q2')" />
+                        <button onclick="addInlineTask('q2')">添加</button>
+                        <button onclick="hideInlineInput('q2')">取消</button>
+                    </div>
+                </div>
+            </div>
+            <div class="quadrant-body">
+                <ul class="task-list" id="list-q2"></ul>
+            </div>
+        </div>
+        
+        <div class="quadrant q1" id="q1">
+            <div class="quadrant-header">
+                <div class="quadrant-number">I</div>
+                <button class="btn-quadrant-add" onclick="showInlineInput('q1')">+</button>
+                <div class="quadrant-title">🔥 重要且紧急 <span class="quadrant-subtitle-inline">危机模式，立即处理</span></div>
+                <div class="quadrant-action">⚡ 立即执行，不可拖延</div>
+                <div class="inline-input-wrap" id="inline-q1">
+                    <div class="input-row">
+                        <input type="text" class="inline-title" placeholder="标题" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q1')" />
+                        <input type="text" class="inline-content" placeholder="内容（可选）" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q1')" />
+                        <button onclick="addInlineTask('q1')">添加</button>
+                        <button onclick="hideInlineInput('q1')">取消</button>
+                    </div>
+                </div>
+            </div>
+            <div class="quadrant-body">
+                <ul class="task-list" id="list-q1"></ul>
+            </div>
+        </div>
+        
+        <div class="quadrant q4" id="q4">
+            <div class="quadrant-header">
+                <div class="quadrant-number">IV</div>
+                <button class="btn-quadrant-add" onclick="showInlineInput('q4')">+</button>
+                <div class="quadrant-title">💤 不重要不紧急 <span class="quadrant-subtitle-inline">浪费时间，尽量消除</span></div>
+                <div class="quadrant-action">🚫 尽量避免，减少消耗</div>
+                <div class="inline-input-wrap" id="inline-q4">
+                    <div class="input-row">
+                        <input type="text" class="inline-title" placeholder="标题" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q4')" />
+                        <input type="text" class="inline-content" placeholder="内容（可选）" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q4')" />
+                        <button onclick="addInlineTask('q4')">添加</button>
+                        <button onclick="hideInlineInput('q4')">取消</button>
+                    </div>
+                </div>
+            </div>
+            <div class="quadrant-body">
+                <ul class="task-list" id="list-q4"></ul>
+            </div>
+        </div>
+        
+        <div class="quadrant q3" id="q3">
+            <div class="quadrant-header">
+                <div class="quadrant-number">III</div>
+                <button class="btn-quadrant-add" onclick="showInlineInput('q3')">+</button>
+                <div class="quadrant-title">😅 不重要但紧急 <span class="quadrant-subtitle-inline">干扰陷阱，学会拒绝</span></div>
+                <div class="quadrant-action">🤝 授权他人，学会委婉拒绝</div>
+                <div class="inline-input-wrap" id="inline-q3">
+                    <div class="input-row">
+                        <input type="text" class="inline-title" placeholder="标题" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q3')" />
+                        <input type="text" class="inline-content" placeholder="内容（可选）" onkeydown="if(event.key==='Enter'&&event.metaKey)addInlineTask('q3')" />
+                        <button onclick="addInlineTask('q3')">添加</button>
+                        <button onclick="hideInlineInput('q3')">取消</button>
+                    </div>
+                </div>
+            </div>
+            <div class="quadrant-body">
+                <ul class="task-list" id="list-q3"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar"></div>
+
+    <button class="trash-btn" id="trashBtn" onclick="toggleTrash()">🗑️<span class="trash-count" id="trashCount"></span></button>
+    <div class="trash-overlay" id="trashOverlay" onclick="closeTrash()"></div>
+    <div class="trash-panel" id="trashPanel">
+        <div class="trash-header">
+            <div class="trash-title">🗑️ 回收站</div>
+            <button class="clear-btn" onclick="clearTrash()" style="padding:6px 14px;font-size:0.8rem">清空回收站</button>
+        </div>
+        <ul class="trash-list" id="trashList"></ul>
+    </div>
+
+    <div class="loading-bar" id="loadingBar"></div>
+
+    <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()" title="GitHub 设置">⚙️</button>
+    <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <h3>GitHub 连接设置 <span id="connStatus" class="conn-status"></span></h3>
+        <label>Personal Access Token</label>
+        <input type="password" id="configToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+        <label>仓库 (owner/repo)</label>
+        <input type="text" id="configRepo" placeholder="myusername/my-repo" />
+        <label>分支</label>
+        <input type="text" id="configBranch" value="main" placeholder="main" />
+        <div class="settings-buttons">
+            <button class="btn-connect" id="btnConnect" onclick="connectGitHub()">连接</button>
+            <button class="btn-disconnect" onclick="disconnectGitHub()">断开</button>
+        </div>
+        <div class="status-msg" id="settingsStatus"></div>
+    </div>
+
+    <script>
+        const CONFIG_KEY = 'eisenhower_github_config';
+
+        const FILE_PATH_Q1 = 'eisenhower/q1.jsonl';
+        const FILE_PATH_Q2 = 'eisenhower/q2.jsonl';
+        const FILE_PATH_Q3 = 'eisenhower/q3.jsonl';
+        const FILE_PATH_Q4 = 'eisenhower/q4.jsonl';
+        const FILE_PATH_TRASH = 'eisenhower/trash.jsonl';
+
+        const FILE_MAP = { q1: FILE_PATH_Q1, q2: FILE_PATH_Q2, q3: FILE_PATH_Q3, q4: FILE_PATH_Q4, trash: FILE_PATH_TRASH };
+
+        let tasksCache = [];
+        let fileShas = {};
+        let apiToken = '';
+        let apiRepoOwner = '';
+        let apiRepoName = '';
+        var saveLocks = {};
+        var connectionAttempted = false;
+
+        function withLock(path, fn) {
+            var prev = saveLocks[path] || Promise.resolve();
+            var next = prev.then(function() { return fn(); });
+            saveLocks[path] = next.catch(function() {});
+            return next;
+        }
+
+        function loadConfig() {
+            try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { token: '', repo: '', branch: 'main' }; }
+            catch { return { token: '', repo: '', branch: 'main' }; }
+        }
+
+        function saveConfig(config) { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
+
+        function getBranch() { return loadConfig().branch || 'main'; }
+
+        function apiHeaders() {
+            return {
+                'Authorization': 'token ' + apiToken,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function parseApiError(respStatus, respText) {
+            try {
+                var err = JSON.parse(respText);
+                return err.message || ('HTTP ' + respStatus);
+            } catch (e) {
+                return 'HTTP ' + respStatus + ' ' + respText;
+            }
+        }
+
+        async function apiGet(url) {
+            console.log('[apiGet]', url);
+            var resp = await fetch(url, { headers: apiHeaders(), cache: 'no-store' });
+            if (!resp.ok) {
+                var errText = await resp.text();
+                var msg = parseApiError(resp.status, errText);
+                console.error('[apiGet] FAIL', resp.status, msg);
+                throw new Error(msg);
+            }
+            var data = await resp.json();
+            console.log('[apiGet] OK');
+            return data;
+        }
+
+        async function apiPut(url, body) {
+            console.log('[apiPut]', url, 'sha:', body.sha ? body.sha.substring(0, 7) : 'none', 'branch:', body.branch);
+            var resp = await fetch(url, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(body), cache: 'no-store' });
+            var respText = await resp.text();
+            if (!resp.ok) {
+                var msg = parseApiError(resp.status, respText);
+                console.error('[apiPut] FAIL', resp.status, msg);
+                throw new Error(msg);
+            }
+            console.log('[apiPut] OK');
+            return JSON.parse(respText);
+        }
+
+        function base64Encode(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(m, p1) {
+                return String.fromCharCode('0x' + p1);
+            }));
+        }
+
+        function base64Decode(base64) {
+            if (!base64) return '';
+            return decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        }
+
+        function initApi(config) {
+            if (!config.token || !config.repo) return false;
+            apiToken = config.token;
+            var parts = config.repo.split('/');
+            if (parts.length !== 2) return false;
+            apiRepoOwner = parts[0].trim();
+            apiRepoName = parts[1].trim();
+            return true;
+        }
+
+        function apiRepoUrl() {
+            return 'https://api.github.com/repos/' + apiRepoOwner + '/' + apiRepoName;
+        }
+
+        function apiContentsUrl(path) {
+            return apiRepoUrl() + '/contents/' + path;
+        }
+
+        async function testConnection(config) {
+            if (!initApi(config)) return false;
+            try {
+                await apiGet(apiRepoUrl());
+                return true;
+            } catch (e) { return false; }
+        }
+
+        function isConfigured() {
+            var cfg = loadConfig();
+            return cfg.token && cfg.repo;
+        }
+
+        async function fetchFileContent(path) {
+            var branch = getBranch();
+            try {
+                var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
+                var info = await apiGet(url);
+                fileShas[path] = info.sha;
+                var content = base64Decode(info.content);
+                if (!content || !content.trim()) return [];
+                return content.split('\n').filter(function(line) { return line.trim(); }).map(function(line) {
+                    return JSON.parse(line);
+                });
+            } catch (e) {
+                fileShas[path] = null;
+                return [];
+            }
+        }
+
+        async function saveFileContent(path, tasks) {
+            return withLock(path, async function() {
+            var branch = getBranch();
+            console.log('[saveFileContent]', path, 'tasks count:', tasks.length, 'token set:', !!apiToken);
+            var content = tasks.map(function(t) { return JSON.stringify(t); }).join('\n') + (tasks.length > 0 ? '\n' : '');
+            var encoded = base64Encode(content);
+            var body = { message: 'Update ' + path, content: encoded, branch: branch };
+
+            try {
+                var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
+                var info = await apiGet(url);
+                body.sha = info.sha;
+                console.log('[saveFileContent] fetched sha:', info.sha.substring(0, 7));
+            } catch (e) {
+                console.log('[saveFileContent] file not found, will create');
+            }
+
+            console.log('[saveFileContent] saving with sha:', body.sha ? body.sha.substring(0, 7) : '(none - create)');
+            var result = await apiPut(apiContentsUrl(path), body);
+            console.log('[saveFileContent] response content:', JSON.stringify(result.content).substring(0, 200));
+            return result;
+        });
+        }
+
+        async function fileExists(path) {
+            var branch = getBranch();
+            var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
+            try {
+                await apiGet(url);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function ensureFilesExist() {
+            var keys = ['q1', 'q2', 'q3', 'q4', 'trash'];
+            for (var i = 0; i < keys.length; i++) {
+                var path = FILE_MAP[keys[i]];
+                var exists = await fileExists(path);
+                if (!exists) {
+                    var body = { message: 'Create ' + path, content: base64Encode(''), branch: getBranch() };
+                    await apiPut(apiContentsUrl(path), body);
+                }
+            }
+        }
+
+        async function loadAllTasks() {
+            tasksCache = [];
+            fileShas = {};
+            var keys = ['q1', 'q2', 'q3', 'q4', 'trash'];
+            for (var i = 0; i < keys.length; i++) {
+                var tasks = await fetchFileContent(FILE_MAP[keys[i]]);
+                for (var j = 0; j < tasks.length; j++) {
+                    tasksCache.push(tasks[j]);
+                }
+            }
+        }
+
+        function getTasksForQuadrant(q) {
+            return tasksCache.filter(function(t) {
+                if (q === 'trash') return t.deleted;
+                return t.quadrant === q && !t.deleted;
+            });
+        }
+
+        async function saveQuadrant(q) {
+            var tasks = getTasksForQuadrant(q);
+            await saveFileContent(FILE_MAP[q], tasks);
+        }
+
+        async function addInlineTask(quadrant) {
+            var wrap = document.getElementById('inline-' + quadrant);
+            var titleInput = wrap.querySelector('.inline-title');
+            var contentInput = wrap.querySelector('.inline-content');
+            var title = titleInput.value.trim();
+            if (!title) return;
+            var content = contentInput.value.trim();
+            titleInput.value = '';
+            contentInput.value = '';
+            wrap.classList.remove('show');
+            showLoading();
+            var newTask = { id: Date.now(), title: title, content: content, quadrant: quadrant, done: false };
+            tasksCache.push(newTask);
+            console.log('[addInlineTask] added', newTask.id, 'to', quadrant, 'token set:', !!apiToken);
+            render();
+            bindQuadrantDropEvents();
+            try {
+                console.log('[addInlineTask] saving to', quadrant);
+                await saveQuadrant(quadrant);
+                console.log('[addInlineTask] save success');
+            }
+            catch (e) {
+                console.error('[addInlineTask] save FAILED:', e.message);
+                showStatus('保存失败: ' + e.message, true);
+            }
+            hideLoading();
+        }
+
+        async function toggleTask(id) {
+            var task = tasksCache.find(function(t) { return t.id === id; });
+            if (task && !task.deleted) {
+                task.done = !task.done;
+                showLoading();
+                render();
+                bindQuadrantDropEvents();
+                try { await saveQuadrant(task.quadrant); }
+                catch (e) { showStatus('保存失败: ' + e.message, true); }
+                hideLoading();
+            }
+        }
+
+        async function deleteTask(id) {
+            var task = tasksCache.find(function(t) { return t.id === id; });
+            if (task) {
+                task.deleted = true;
+                task.deletedAt = Date.now();
+                task.originalQuadrant = task.quadrant;
+                console.log('[deleteTask] deleted', id, 'from', task.originalQuadrant, 'token set:', !!apiToken);
+                showLoading();
+                render();
+                bindQuadrantDropEvents();
+                try {
+                    console.log('[deleteTask] saving source quadrant:', task.originalQuadrant);
+                    await saveQuadrant(task.originalQuadrant);
+                    console.log('[deleteTask] saving trash');
+                    await saveQuadrant('trash');
+                    console.log('[deleteTask] save success');
+                } catch (e) {
+                    console.error('[deleteTask] save FAILED:', e.message);
+                    showStatus('保存失败: ' + e.message, true);
+                }
+                hideLoading();
+            }
+        }
+
+        async function restoreTask(id) {
+            var task = tasksCache.find(function(t) { return t.id === id; });
+            if (task) {
+                task.deleted = false;
+                task.quadrant = task.originalQuadrant || 'q1';
+                delete task.deletedAt;
+                delete task.originalQuadrant;
+                showLoading();
+                render();
+                bindQuadrantDropEvents();
+                try {
+                    await saveQuadrant(task.quadrant);
+                    await saveQuadrant('trash');
+                } catch (e) { showStatus('保存失败: ' + e.message, true); }
+                hideLoading();
+            }
+        }
+
+        async function permanentDelete(id) {
+            tasksCache = tasksCache.filter(function(t) { return t.id !== id; });
+            showLoading();
+            render();
+            bindQuadrantDropEvents();
+            try { await saveQuadrant('trash'); }
+            catch (e) { showStatus('保存失败: ' + e.message, true); }
+            hideLoading();
+        }
+
+        async function clearTrash() {
+            tasksCache = tasksCache.filter(function(t) { return !t.deleted; });
+            showLoading();
+            render();
+            bindQuadrantDropEvents();
+            try { await saveFileContent(FILE_PATH_TRASH, []); }
+            catch (e) { showStatus('保存失败: ' + e.message, true); }
+            hideLoading();
+            closeTrash();
+        }
+
+        async function clearDone() {
+            tasksCache = tasksCache.filter(function(t) { return !t.done || t.deleted; });
+            showLoading();
+            render();
+            bindQuadrantDropEvents();
+            var keys = ['q1', 'q2', 'q3', 'q4'];
+            for (var i = 0; i < keys.length; i++) {
+                try { await saveQuadrant(keys[i]); } catch (e) {}
+            }
+            hideLoading();
+        }
+
+        async function saveEdit(id) {
+            var editEl = document.getElementById('task-edit-' + id);
+            var title = editEl.querySelector('.edit-title').value.trim();
+            if (!title) return;
+            var content = editEl.querySelector('.edit-content').value.trim();
+            var task = tasksCache.find(function(t) { return t.id === id; });
+            if (task) {
+                task.title = title;
+                task.content = content;
+                showLoading();
+                render();
+                bindQuadrantDropEvents();
+                try { await saveQuadrant(task.deleted ? (task.originalQuadrant || 'q1') : task.quadrant); }
+                catch (e) { showStatus('保存失败: ' + e.message, true); }
+                hideLoading();
+            }
+        }
+
+        async function reorderTasks(targetTaskId, before) {
+            var draggedTask = tasksCache.find(function(t) { return t.id === draggedTaskId; });
+            var targetTask = tasksCache.find(function(t) { return t.id === targetTaskId; });
+            if (!draggedTask || !targetTask) return;
+            var oldQuadrant = draggedTask.quadrant;
+            draggedTask.quadrant = targetTask.quadrant;
+            var qTasks = tasksCache.filter(function(t) { return t.quadrant === draggedTask.quadrant && t.id !== draggedTaskId; })
+                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+            var targetIndex = qTasks.findIndex(function(t) { return t.id === targetTaskId; });
+            if (before) qTasks.splice(targetIndex, 0, draggedTask);
+            else qTasks.splice(targetIndex + 1, 0, draggedTask);
+            qTasks.forEach(function(t, i) { t.order = i; });
+            var otherTasks = tasksCache.filter(function(t) { return t.quadrant !== draggedTask.quadrant; })
+                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+            tasksCache = qTasks.concat(otherTasks);
+            showLoading();
+            render();
+            bindQuadrantDropEvents();
+            try {
+                await saveQuadrant(draggedTask.quadrant);
+                if (oldQuadrant !== draggedTask.quadrant) await saveQuadrant(oldQuadrant);
+            } catch (e) { showStatus('保存失败: ' + e.message, true); }
+            hideLoading();
+        }
+
+        function render() {
+            var tasks = tasksCache.filter(function(t) { return !t.deleted; });
+            var deletedTasks = tasksCache.filter(function(t) { return t.deleted; })
+                .sort(function(a, b) { return (b.deletedAt || 0) - (a.deletedAt || 0); });
+            var quadrants = ['q1', 'q2', 'q3', 'q4'];
+
+            quadrants.forEach(function(q) {
+                var list = document.getElementById('list-' + q);
+                var qTasks = tasks.filter(function(t) { return t.quadrant === q; })
+                    .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+                if (qTasks.length === 0) {
+                    list.innerHTML = '<div class="empty-tip">暂无任务</div>';
+                } else {
+                    list.innerHTML = qTasks.map(function(t, i) {
+                        var hasContent = !!t.content;
+                        return '<li class="task-item ' + (t.done ? 'done' : '') + '" draggable="true" data-task-id="' + t.id + '" data-quadrant="' + t.quadrant + '"'
+                            + ' ondragstart="onDragStart(event, ' + t.id + ')" ondragend="onDragEnd(event)"'
+                            + ' ondragover="onDragOverItem(event, this)" ondragleave="onDragLeaveItem(this)">'
+                            + '<span class="task-index">' + (i + 1) + '</span>'
+                            + '<div class="task-check" onclick="toggleTask(' + t.id + ')"></div>'
+                            + '<div class="task-text" ondblclick="startEdit(' + t.id + ')" id="task-display-' + t.id + '">'
+                            + '<div class="task-title">' + escapeHtml(t.title || t.text) + '</div>'
+                            + (hasContent ? '<div class="task-content">' + escapeHtml(t.content) + '</div>' : '')
+                            + '</div>'
+                            + '<div class="task-text" id="task-edit-' + t.id + '" style="display:none">'
+                            + '<div class="edit-form">'
+                            + '<input type="text" class="edit-title" value="' + escapeAttr(t.title || t.text) + '" placeholder="标题" onkeydown="if(event.key===\'Enter\'&&event.metaKey)saveEdit(' + t.id + ');if(event.key===\'Escape\')cancelEdit(' + t.id + ')" />'
+                            + '<input type="text" class="edit-content" value="' + escapeAttr(t.content || '') + '" placeholder="内容（可选）" onkeydown="if(event.key===\'Enter\'&&event.metaKey)saveEdit(' + t.id + ');if(event.key===\'Escape\')cancelEdit(' + t.id + ')" />'
+                            + '<div class="edit-form-buttons">'
+                            + '<button class="btn-edit-save" onclick="saveEdit(' + t.id + ')">保存</button>'
+                            + '<button class="btn-edit-cancel" onclick="cancelEdit(' + t.id + ')">取消</button>'
+                            + '</div></div></div>'
+                            + (hasContent ? '<button class="task-expand" onclick="toggleExpand(this)">▼</button>' : '')
+                            + '<button class="task-delete" onclick="deleteTask(' + t.id + ')">×</button>'
+                            + '</li>';
+                    }).join('');
+                }
+            });
+
+            var total = tasks.length;
+            var done = tasks.filter(function(t) { return t.done; }).length;
+            var undone = total - done;
+
+            document.getElementById('statsBar').innerHTML =
+                '<div class="stat-card"><div class="stat-count">' + total + '</div><div class="stat-label">总任务</div></div>'
+                + '<div class="stat-card"><div class="stat-count">' + undone + '</div><div class="stat-label">待完成</div></div>'
+                + '<div class="stat-card"><div class="stat-count">' + done + '</div><div class="stat-label">已完成</div></div>'
+                + (done > 0 ? '<button class="clear-btn" onclick="clearDone()">清除已完成</button>' : '');
+
+            var trashBtn = document.getElementById('trashBtn');
+            var trashCount = document.getElementById('trashCount');
+            var trashList = document.getElementById('trashList');
+            if (deletedTasks.length === 0) {
+                trashBtn.style.display = 'none';
+                closeTrash();
+            } else {
+                trashBtn.style.display = '';
+                trashCount.textContent = deletedTasks.length;
+                trashList.innerHTML = deletedTasks.map(function(t) {
+                    var time = t.deletedAt ? formatTime(t.deletedAt) : '';
+                    var hasContent = !!t.content;
+                    return '<li class="trash-item" id="trash-item-' + t.id + '">'
+                        + '<span class="trash-title-text">' + escapeHtml(t.title || t.text) + '</span>'
+                        + (hasContent ? '<div class="trash-content" id="trash-content-' + t.id + '" style="display:none;color:rgba(255,255,255,0.5);font-size:0.8rem;margin-top:4px;width:100%">' + escapeHtml(t.content) + '</div>' : '')
+                        + '<span class="trash-time">' + time + '</span>'
+                        + (hasContent ? '<button class="task-expand" onclick="toggleTrashDetail(' + t.id + ')" style="width:20px;height:20px;font-size:0.6rem">▼</button>' : '')
+                        + '<button class="btn-restore" onclick="restoreTask(' + t.id + ')">恢复</button>'
+                        + '<button class="btn-trash-delete" onclick="permanentDelete(' + t.id + ')">×</button>'
+                        + '</li>';
+                }).join('');
+            }
+        }
+
+        function formatTime(timestamp) {
+            var d = new Date(timestamp);
+            var pad = function(n) { return String(n).padStart(2, '0'); };
+            return (d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function startEdit(id) {
+            document.getElementById('task-display-' + id).style.display = 'none';
+            var editEl = document.getElementById('task-edit-' + id);
+            editEl.style.display = '';
+            editEl.querySelector('.edit-title').focus();
+        }
+
+        function cancelEdit(id) {
+            document.getElementById('task-display-' + id).style.display = '';
+            document.getElementById('task-edit-' + id).style.display = 'none';
+        }
+
+        function showInlineInput(quadrant) {
+            var wrap = document.getElementById('inline-' + quadrant);
+            wrap.classList.toggle('show');
+            if (wrap.classList.contains('show')) {
+                wrap.querySelector('.inline-title').focus();
+            }
+        }
+
+        function hideInlineInput(quadrant) {
+            var wrap = document.getElementById('inline-' + quadrant);
+            wrap.classList.remove('show');
+        }
+
+        function toggleExpand(el) {
+            el.closest('.task-item').classList.toggle('expanded');
+        }
+
+        function toggleTrashDetail(id) {
+            var content = document.getElementById('trash-content-' + id);
+            if (content) {
+                content.style.display = content.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function showLoading() {
+            var bar = document.getElementById('loadingBar');
+            bar.classList.add('active');
+        }
+
+        function hideLoading() {
+            var bar = document.getElementById('loadingBar');
+            bar.classList.remove('active');
+        }
+
+        function showStatus(msg, isError) {
+            var el = document.getElementById('settingsStatus');
+            el.textContent = msg;
+            el.className = 'status-msg' + (isError ? ' error' : '');
+            if (!isError) {
+                setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 3000);
+            }
+        }
+
+        var trashExpanded = false;
+
+        function toggleTrash() {
+            trashExpanded = !trashExpanded;
+            var overlay = document.getElementById('trashOverlay');
+            var panel = document.getElementById('trashPanel');
+            if (trashExpanded) { overlay.classList.add('show'); panel.classList.add('show'); }
+            else { overlay.classList.remove('show'); panel.classList.remove('show'); }
+        }
+
+        function closeTrash() {
+            trashExpanded = false;
+            document.getElementById('trashOverlay').classList.remove('show');
+            document.getElementById('trashPanel').classList.remove('show');
+        }
+
+        var settingsVisible = false;
+
+        function toggleSettings() {
+            settingsVisible = !settingsVisible;
+            var overlay = document.getElementById('settingsOverlay');
+            var panel = document.getElementById('settingsPanel');
+            if (settingsVisible) {
+                overlay.classList.add('show');
+                panel.classList.add('show');
+                var cfg = loadConfig();
+                document.getElementById('configToken').value = cfg.token || '';
+                document.getElementById('configRepo').value = cfg.repo || '';
+                document.getElementById('configBranch').value = cfg.branch || 'main';
+                updateConnStatus();
+            } else {
+                overlay.classList.remove('show');
+                panel.classList.remove('show');
+            }
+            document.getElementById('settingsStatus').textContent = '';
+            document.getElementById('settingsStatus').className = 'status-msg';
+        }
+
+        function updateConnStatus() {
+            var el = document.getElementById('connStatus');
+            var connected = document.getElementById('settingsBtn').classList.contains('connected');
+            if (connected) {
+                el.textContent = '已连接';
+                el.className = 'conn-status connected';
+            } else if (connectionAttempted) {
+                el.textContent = '未连接';
+                el.className = 'conn-status disconnected';
+            } else {
+                el.textContent = '';
+                el.className = 'conn-status';
+            }
+        }
+
+        function closeSettings() {
+            settingsVisible = false;
+            document.getElementById('settingsOverlay').classList.remove('show');
+            document.getElementById('settingsPanel').classList.remove('show');
+        }
+
+        async function connectGitHub() {
+            connectionAttempted = true;
+            document.getElementById('settingsStatus').textContent = '';
+            document.getElementById('settingsStatus').className = 'status-msg';
+            var token = document.getElementById('configToken').value.trim();
+            var repoStr = document.getElementById('configRepo').value.trim();
+            var branch = document.getElementById('configBranch').value.trim() || 'main';
+            if (!token) { showStatus('请输入 Token', true); return; }
+            if (!repoStr || repoStr.indexOf('/') === -1) { showStatus('请输入有效的仓库名 (owner/repo)', true); return; }
+            var btn = document.getElementById('btnConnect');
+            btn.disabled = true;
+            btn.textContent = '连接中...';
+            var config = { token: token, repo: repoStr, branch: branch };
+
+            if (!initApi(config)) {
+                showStatus('仓库格式错误', true);
+                setConnFailed(btn);
+                return;
+            }
+
+            try {
+                await apiGet(apiRepoUrl());
+            } catch (e) {
+                showStatus('Token 或仓库无效: ' + e.message, true);
+                setConnFailed(btn);
+                return;
+            }
+
+            try {
+                await apiGet(apiRepoUrl() + '/branches/' + encodeURIComponent(branch));
+            } catch (e) {
+                showStatus('分支不存在: ' + e.message, true);
+                setConnFailed(btn);
+                return;
+            }
+
+            saveConfig(config);
+            showLoading();
+            try {
+                await ensureFilesExist();
+            } catch (e) {
+                showStatus('创建文件失败: ' + e.message, true);
+                setConnFailed(btn);
+                hideLoading();
+                return;
+            }
+            try {
+                await loadAllTasks();
+            } catch (e) {
+                showStatus('加载数据失败: ' + e.message, true);
+                setConnFailed(btn);
+                hideLoading();
+                return;
+            }
+
+            document.getElementById('settingsBtn').classList.add('connected');
+            updateConnStatus();
+            closeSettings();
+            render();
+            bindQuadrantDropEvents();
+            hideLoading();
+            showStatus('连接成功，数据加载完成', false);
+            btn.disabled = false;
+            btn.textContent = '连接';
+        }
+
+        function setConnFailed(btn) {
+            document.getElementById('settingsBtn').classList.remove('connected');
+            updateConnStatus();
+            btn.disabled = false;
+            btn.textContent = '连接';
+        }
+
+        function disconnectGitHub() {
+            connectionAttempted = false;
+            saveConfig({ token: '', repo: '', branch: 'main' });
+            apiToken = '';
+            apiRepoOwner = '';
+            apiRepoName = '';
+            tasksCache = [];
+            fileShas = {};
+            document.getElementById('settingsBtn').classList.remove('connected');
+            updateConnStatus();
+            document.getElementById('configToken').value = '';
+            document.getElementById('configRepo').value = '';
+            render();
+            bindQuadrantDropEvents();
+            closeSettings();
+            showStatus('已断开连接', false);
+        }
+
+        var draggedTaskId = null;
+
+        function onDragStart(e, taskId) {
+            draggedTaskId = taskId;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', taskId);
+        }
+
+        function onDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.quadrant').forEach(function(q) { q.classList.remove('drag-over'); });
+            document.querySelectorAll('.task-item').forEach(function(t) { t.classList.remove('drag-over-item'); });
+        }
+
+        function onDragOverItem(e, el) {
+            if (draggedTaskId === null) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            var targetId = parseInt(el.dataset.taskId);
+            if (targetId !== draggedTaskId) { el.classList.add('drag-over-item'); }
+        }
+
+        function onDragLeaveItem(el) { el.classList.remove('drag-over-item'); }
+
+        function bindQuadrantDropEvents() {
+            var quadrants = ['q1', 'q2', 'q3', 'q4'];
+            quadrants.forEach(function(q) {
+                var el = document.getElementById(q);
+                el.ondragover = function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drag-over'); };
+                el.ondragleave = function() { el.classList.remove('drag-over'); };
+                el.ondrop = async function(e) {
+                    e.preventDefault();
+                    el.classList.remove('drag-over');
+                    if (draggedTaskId === null) return;
+                    var dropTarget = e.target.closest('.task-item');
+                    if (dropTarget) {
+                        var targetId = parseInt(dropTarget.dataset.taskId);
+                        var rect = dropTarget.getBoundingClientRect();
+                        var midY = rect.top + rect.height / 2;
+                        var before = e.clientY < midY;
+                        await reorderTasks(targetId, before);
+                    } else {
+                        var task = tasksCache.find(function(t) { return t.id === draggedTaskId; });
+                        if (task && task.quadrant !== q) {
+                            var oldQuadrant = task.quadrant;
+                            task.quadrant = q;
+                            var maxOrder = tasksCache.filter(function(t) { return t.quadrant === q; })
+                                .reduce(function(max, t) { return Math.max(max, t.order || 0); }, -1);
+                            task.order = maxOrder + 1;
+                            showLoading();
+                            render();
+                            bindQuadrantDropEvents();
+                            try {
+                                await saveQuadrant(q);
+                                if (oldQuadrant !== q) await saveQuadrant(oldQuadrant);
+                            } catch (e) { showStatus('保存失败: ' + e.message, true); }
+                            hideLoading();
+                        }
+                    }
+                    draggedTaskId = null;
+                };
+            });
+        }
+
+        (async function init() {
+            console.log('[init] starting, configured:', isConfigured());
+            render();
+            bindQuadrantDropEvents();
+            if (isConfigured()) {
+                connectionAttempted = true;
+                var config = loadConfig();
+                console.log('[init] config repo:', config.repo, 'branch:', config.branch);
+                if (initApi(config)) {
+                    console.log('[init] api initialized, token set:', !!apiToken);
+                    document.getElementById('settingsBtn').classList.add('connected');
+                    updateConnStatus();
+                    showLoading();
+                    try {
+                        console.log('[init] loading all tasks...');
+                        await loadAllTasks();
+                        console.log('[init] loaded', tasksCache.length, 'tasks');
+                    }
+                    catch (e) {
+                        console.error('[init] load failed:', e.message);
+                        showStatus('加载数据失败: ' + e.message, true);
+                    }
+                    render();
+                    bindQuadrantDropEvents();
+                    hideLoading();
+                } else {
+                    console.error('[init] initApi failed');
+                }
+            }
+            console.log('[init] completed');
+        })();
+    </script>
+</body>
+</html>
