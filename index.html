@@ -1209,12 +1209,16 @@
             }
         }
 
+        function markTaskDeleted(task) {
+            task.deleted = true;
+            task.deletedAt = Date.now();
+            task.originalQuadrant = task.quadrant;
+        }
+
         async function deleteTask(id) {
             var task = tasksCache.find(function(t) { return t.id === id; });
             if (task) {
-                task.deleted = true;
-                task.deletedAt = Date.now();
-                task.originalQuadrant = task.quadrant;
+                markTaskDeleted(task);
                 console.log('[deleteTask] deleted', id, 'from', task.originalQuadrant, 'token set:', !!apiToken);
                 showLoading();
                 render();
@@ -1273,14 +1277,21 @@
         }
 
         async function clearDone() {
-            tasksCache = tasksCache.filter(function(t) { return !t.done || t.deleted; });
+            var doneTasks = tasksCache.filter(function(t) { return t.done && !t.deleted; });
+            if (doneTasks.length === 0) return;
+            var affectedQuadrants = {};
+            doneTasks.forEach(function(t) {
+                markTaskDeleted(t);
+                affectedQuadrants[t.originalQuadrant] = true;
+            });
             showLoading();
             render();
             bindQuadrantDropEvents();
-            var keys = ['q1', 'q2', 'q3', 'q4'];
+            var keys = Object.keys(affectedQuadrants);
             for (var i = 0; i < keys.length; i++) {
                 try { await saveQuadrant(keys[i]); } catch (e) {}
             }
+            try { await saveQuadrant('trash'); } catch (e) {}
             hideLoading();
         }
 
