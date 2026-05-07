@@ -958,6 +958,7 @@
     </div>
 
     <script>
+        // ========== 常量 & 全局变量 ==========
         const CONFIG_KEY = 'eisenhower_github_config';
 
         const FILE_PATH_Q1 = 'eisenhower/q1.jsonl';
@@ -975,8 +976,11 @@
         let apiRepoName = '';
         var saveLocks = {};
         var connectionAttempted = false;
+        var trashExpanded = false;
+        var settingsVisible = false;
+        var draggedTaskId = null;
 
-        // 文件写入互斥锁，同一文件路径的写操作排队依次执行
+        // ========== 文件写入互斥锁 ==========
         function withLock(path, fn) {
             var prev = saveLocks[path] || Promise.resolve();
             var next = prev.then(function() { return fn(); });
@@ -984,19 +988,22 @@
             return next;
         }
 
-        // 从 localStorage 加载应用配置
+        // ========== 配置管理 ==========
         function loadConfig() {
             try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { token: '', repo: '', branch: 'main' }; }
             catch { return { token: '', repo: '', branch: 'main' }; }
         }
 
-        // 保存应用配置到 localStorage
         function saveConfig(config) { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
 
-        // 获取当前配置的分支名，默认 'main'
         function getBranch() { return loadConfig().branch || 'main'; }
 
-        // 构建 GitHub API 请求头
+        function isConfigured() {
+            var cfg = loadConfig();
+            return cfg.token && cfg.repo;
+        }
+
+        // ========== GitHub API 核心 ==========
         function apiHeaders() {
             return {
                 'Authorization': 'token ' + apiToken,
@@ -1005,7 +1012,6 @@
             };
         }
 
-        // 解析 GitHub API 错误响应，提取可读的错误信息
         function parseApiError(respStatus, respText) {
             try {
                 var err = JSON.parse(respText);
@@ -1015,7 +1021,6 @@
             }
         }
 
-        // 向 GitHub API 发送 GET 请求并返回 JSON 数据
         async function apiGet(url) {
             console.log('[apiGet]', url);
             var resp = await fetch(url, { headers: apiHeaders(), cache: 'no-store' });
@@ -1030,7 +1035,6 @@
             return data;
         }
 
-        // 向 GitHub API 发送 PUT 请求，用于创建或更新文件
         async function apiPut(url, body) {
             console.log('[apiPut]', url, 'sha:', body.sha ? body.sha.substring(0, 7) : 'none', 'branch:', body.branch);
             var resp = await fetch(url, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(body), cache: 'no-store' });
@@ -1044,14 +1048,12 @@
             return JSON.parse(respText);
         }
 
-        // 将字符串编码为 Base64（兼容中文等 Unicode 字符）
         function base64Encode(str) {
             return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(m, p1) {
                 return String.fromCharCode('0x' + p1);
             }));
         }
 
-        // 将 Base64 解码为字符串（兼容中文等 Unicode 字符）
         function base64Decode(base64) {
             if (!base64) return '';
             return decodeURIComponent(atob(base64).split('').map(function(c) {
@@ -1059,7 +1061,6 @@
             }).join(''));
         }
 
-        // 用配置初始化 API 模块，解析 token 和仓库信息
         function initApi(config) {
             if (!config.token || !config.repo) return false;
             apiToken = config.token;
@@ -1070,17 +1071,14 @@
             return true;
         }
 
-        // 获取 GitHub API 仓库根地址
         function apiRepoUrl() {
             return 'https://api.github.com/repos/' + apiRepoOwner + '/' + apiRepoName;
         }
 
-        // 获取指定文件路径的 GitHub Contents API 地址
         function apiContentsUrl(path) {
             return apiRepoUrl() + '/contents/' + path;
         }
 
-        // 测试 GitHub 连接是否有效，返回 true/false
         async function testConnection(config) {
             if (!initApi(config)) return false;
             try {
@@ -1089,13 +1087,6 @@
             } catch (e) { return false; }
         }
 
-        // 检查是否已完成 GitHub 配置（有 token 和仓库名）
-        function isConfigured() {
-            var cfg = loadConfig();
-            return cfg.token && cfg.repo;
-        }
-
-        // 从 GitHub 拉取指定 JSONL 文件，解析为任务对象数组
         async function fetchFileContent(path) {
             var branch = getBranch();
             try {
@@ -1113,7 +1104,6 @@
             }
         }
 
-        // 将任务列表序列化为 JSONL 格式并上传到 GitHub
         async function saveFileContent(path, tasks) {
             return withLock(path, async function() {
             var branch = getBranch();
@@ -1138,7 +1128,6 @@
         });
         }
 
-        // 检查指定文件是否存在于 GitHub 仓库中
         async function fileExists(path) {
             var branch = getBranch();
             var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
@@ -1150,7 +1139,6 @@
             }
         }
 
-        // 确保所需的 JSONL 文件都存在于仓库中，缺失则创建空文件
         async function ensureFilesExist() {
             var keys = ['q1', 'q2', 'q3', 'q4', 'trash'];
             for (var i = 0; i < keys.length; i++) {
@@ -1163,7 +1151,6 @@
             }
         }
 
-        // 从 GitHub 加载所有象限和回收站文件，合并到内存缓存 tasksCache
         async function loadAllTasks() {
             tasksCache = [];
             fileShas = {};
@@ -1176,8 +1163,7 @@
             }
         }
 
-        // 从缓存中获取指定象限（或回收站）的任务列表
-        // q1~q4 返回该象限下未删除的任务，trash 返回所有已删除的任务
+        // ========== 数据访问层 ==========
         function getTasksForQuadrant(q) {
             return tasksCache.filter(function(t) {
                 if (q === 'trash') return t.deleted;
@@ -1185,13 +1171,12 @@
             });
         }
 
-        // 保存指定象限（或回收站）的任务到对应的 GitHub 文件
         async function saveQuadrant(q) {
             var tasks = getTasksForQuadrant(q);
             await saveFileContent(FILE_MAP[q], tasks);
         }
 
-        // 在指定象限中创建一个新任务
+        // ========== 任务 CRUD 操作 ==========
         async function addInlineTask(quadrant) {
             var wrap = document.getElementById('inline-' + quadrant);
             var titleInput = wrap.querySelector('.inline-title');
@@ -1220,7 +1205,6 @@
             hideLoading();
         }
 
-        // 切换任务的完成/未完成状态
         async function toggleTask(id) {
             var task = tasksCache.find(function(t) { return t.id === id; });
             if (task && !task.deleted) {
@@ -1234,14 +1218,12 @@
             }
         }
 
-        // 将任务标记为已删除状态（移入回收站的前置操作）
         function markTaskDeleted(task) {
             task.deleted = true;
             task.deletedAt = Date.now();
             task.originalQuadrant = task.quadrant;
         }
 
-        // 删除任务（移入回收站），保存源象限和回收站文件
         async function deleteTask(id) {
             var task = tasksCache.find(function(t) { return t.id === id; });
             if (task) {
@@ -1264,7 +1246,6 @@
             }
         }
 
-        // 从回收站恢复任务到原来的象限
         async function restoreTask(id) {
             var task = tasksCache.find(function(t) { return t.id === id; });
             if (task) {
@@ -1283,7 +1264,6 @@
             }
         }
 
-        // 从缓存和回收站文件中永久删除任务（不可恢复）
         async function permanentDelete(id) {
             tasksCache = tasksCache.filter(function(t) { return t.id !== id; });
             showLoading();
@@ -1294,7 +1274,6 @@
             hideLoading();
         }
 
-        // 清空回收站中的所有任务（永久删除）
         async function clearTrash() {
             tasksCache = tasksCache.filter(function(t) { return !t.deleted; });
             showLoading();
@@ -1306,7 +1285,6 @@
             closeTrash();
         }
 
-        // 将所有已完成任务批量移入回收站（等价于逐一点击删除按钮）
         async function clearDone() {
             var doneTasks = tasksCache.filter(function(t) { return t.done && !t.deleted; });
             if (doneTasks.length === 0) return;
@@ -1326,7 +1304,6 @@
             hideLoading();
         }
 
-        // 保存对任务的编辑修改
         async function saveEdit(id) {
             var editEl = document.getElementById('task-edit-' + id);
             var title = editEl.querySelector('.edit-title').value.trim();
@@ -1345,33 +1322,19 @@
             }
         }
 
-        // 处理拖拽排序后的任务重排与跨象限移动
-        async function reorderTasks(targetTaskId, before) {
-            var draggedTask = tasksCache.find(function(t) { return t.id === draggedTaskId; });
-            var targetTask = tasksCache.find(function(t) { return t.id === targetTaskId; });
-            if (!draggedTask || !targetTask) return;
-            var oldQuadrant = draggedTask.quadrant;
-            draggedTask.quadrant = targetTask.quadrant;
-            var qTasks = tasksCache.filter(function(t) { return t.quadrant === draggedTask.quadrant && t.id !== draggedTaskId; })
-                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
-            var targetIndex = qTasks.findIndex(function(t) { return t.id === targetTaskId; });
-            if (before) qTasks.splice(targetIndex, 0, draggedTask);
-            else qTasks.splice(targetIndex + 1, 0, draggedTask);
-            qTasks.forEach(function(t, i) { t.order = i; });
-            var otherTasks = tasksCache.filter(function(t) { return t.quadrant !== draggedTask.quadrant; })
-                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
-            tasksCache = qTasks.concat(otherTasks);
-            showLoading();
-            render();
-            bindQuadrantDropEvents();
-            try {
-                await saveQuadrant(draggedTask.quadrant);
-                if (oldQuadrant !== draggedTask.quadrant) await saveQuadrant(oldQuadrant);
-            } catch (e) { showStatus('保存失败: ' + e.message, true); }
-            hideLoading();
+        function startEdit(id) {
+            document.getElementById('task-display-' + id).style.display = 'none';
+            var editEl = document.getElementById('task-edit-' + id);
+            editEl.style.display = '';
+            editEl.querySelector('.edit-title').focus();
         }
 
-        // 渲染整个界面：四个象限任务列表、统计栏、回收站面板
+        function cancelEdit(id) {
+            document.getElementById('task-display-' + id).style.display = '';
+            document.getElementById('task-edit-' + id).style.display = 'none';
+        }
+
+        // ========== UI 渲染 & 工具函数 ==========
         function render() {
             var tasks = tasksCache.filter(function(t) { return !t.deleted; });
             var deletedTasks = tasksCache.filter(function(t) { return t.deleted; })
@@ -1445,40 +1408,23 @@
             }
         }
 
-        // 将时间戳格式化为 M/D HH:mm 格式的字符串
         function formatTime(timestamp) {
             var d = new Date(timestamp);
             var pad = function(n) { return String(n).padStart(2, '0'); };
             return (d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
         }
 
-        // 对 HTML 文本进行转义，防止 XSS 注入
         function escapeHtml(str) {
             var div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
         }
 
-        // 对 HTML 属性值中的特殊字符进行转义
         function escapeAttr(str) {
             return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // 进入任务编辑模式，显示编辑表单并聚焦标题输入框
-        function startEdit(id) {
-            document.getElementById('task-display-' + id).style.display = 'none';
-            var editEl = document.getElementById('task-edit-' + id);
-            editEl.style.display = '';
-            editEl.querySelector('.edit-title').focus();
-        }
-
-        // 退出任务编辑模式，恢复显示模式
-        function cancelEdit(id) {
-            document.getElementById('task-display-' + id).style.display = '';
-            document.getElementById('task-edit-' + id).style.display = 'none';
-        }
-
-        // 切换行内新建任务输入框的显示/隐藏
+        // ========== UI 交互 - 输入框 ==========
         function showInlineInput(quadrant) {
             var wrap = document.getElementById('inline-' + quadrant);
             wrap.classList.toggle('show');
@@ -1487,18 +1433,16 @@
             }
         }
 
-        // 隐藏行内新建任务输入框
         function hideInlineInput(quadrant) {
             var wrap = document.getElementById('inline-' + quadrant);
             wrap.classList.remove('show');
         }
 
-        // 切换任务项详细内容的展开/收起
+        // ========== UI 交互 - 展开/收起 ==========
         function toggleExpand(el) {
             el.closest('.task-item').classList.toggle('expanded');
         }
 
-        // 切换回收站中任务详细内容的展开/收起
         function toggleTrashDetail(id) {
             var content = document.getElementById('trash-content-' + id);
             if (content) {
@@ -1506,19 +1450,17 @@
             }
         }
 
-        // 显示顶部加载进度条
+        // ========== UI 交互 - 加载/状态 ==========
         function showLoading() {
             var bar = document.getElementById('loadingBar');
             bar.classList.add('active');
         }
 
-        // 隐藏顶部加载进度条
         function hideLoading() {
             var bar = document.getElementById('loadingBar');
             bar.classList.remove('active');
         }
 
-        // 显示状态消息，isError=true 时显示错误样式，非错误消息 3 秒后自动消失
         function showStatus(msg, isError) {
             var el = document.getElementById('settingsStatus');
             el.textContent = msg;
@@ -1528,9 +1470,7 @@
             }
         }
 
-        var trashExpanded = false;
-
-        // 切换回收站面板的展开/收起
+        // ========== 回收站面板 ==========
         function toggleTrash() {
             trashExpanded = !trashExpanded;
             var overlay = document.getElementById('trashOverlay');
@@ -1539,16 +1479,13 @@
             else { overlay.classList.remove('show'); panel.classList.remove('show'); }
         }
 
-        // 关闭回收站面板
         function closeTrash() {
             trashExpanded = false;
             document.getElementById('trashOverlay').classList.remove('show');
             document.getElementById('trashPanel').classList.remove('show');
         }
 
-        var settingsVisible = false;
-
-        // 切换设置面板的展开/收起，展开时自动填入当前配置
+        // ========== 设置面板 & GitHub 连接 ==========
         function toggleSettings() {
             settingsVisible = !settingsVisible;
             var overlay = document.getElementById('settingsOverlay');
@@ -1569,7 +1506,6 @@
             document.getElementById('settingsStatus').className = 'status-msg';
         }
 
-        // 更新页面上的连接状态指示文字
         function updateConnStatus() {
             var el = document.getElementById('connStatus');
             var connected = document.getElementById('settingsBtn').classList.contains('connected');
@@ -1585,14 +1521,12 @@
             }
         }
 
-        // 关闭设置面板
         function closeSettings() {
             settingsVisible = false;
             document.getElementById('settingsOverlay').classList.remove('show');
             document.getElementById('settingsPanel').classList.remove('show');
         }
 
-        // 连接 GitHub：验证 token、仓库和分支，创建所需文件，加载数据
         async function connectGitHub() {
             connectionAttempted = true;
             document.getElementById('settingsStatus').textContent = '';
@@ -1659,7 +1593,6 @@
             btn.textContent = '连接';
         }
 
-        // 连接失败时重置按钮状态和连接标识
         function setConnFailed(btn) {
             document.getElementById('settingsBtn').classList.remove('connected');
             updateConnStatus();
@@ -1667,7 +1600,6 @@
             btn.textContent = '连接';
         }
 
-        // 断开 GitHub 连接，清除所有缓存数据和配置
         function disconnectGitHub() {
             connectionAttempted = false;
             saveConfig({ token: '', repo: '', branch: 'main' });
@@ -1686,9 +1618,7 @@
             showStatus('已断开连接', false);
         }
 
-        var draggedTaskId = null;
-
-        // 拖拽开始：记录被拖拽任务 ID，为目标元素添加拖拽样式
+        // ========== 拖拽功能 ==========
         function onDragStart(e, taskId) {
             draggedTaskId = taskId;
             e.target.classList.add('dragging');
@@ -1696,14 +1626,12 @@
             e.dataTransfer.setData('text/plain', taskId);
         }
 
-        // 拖拽结束：清除所有拖拽相关样式
         function onDragEnd(e) {
             e.target.classList.remove('dragging');
             document.querySelectorAll('.quadrant').forEach(function(q) { q.classList.remove('drag-over'); });
             document.querySelectorAll('.task-item').forEach(function(t) { t.classList.remove('drag-over-item'); });
         }
 
-        // 拖拽悬停在另一个任务项上时，为目标添加高亮样式
         function onDragOverItem(e, el) {
             if (draggedTaskId === null) return;
             e.preventDefault();
@@ -1712,10 +1640,33 @@
             if (targetId !== draggedTaskId) { el.classList.add('drag-over-item'); }
         }
 
-        // 拖拽离开任务项时移除高亮样式
         function onDragLeaveItem(el) { el.classList.remove('drag-over-item'); }
 
-        // 为四个象限区域绑定拖放事件：支持任务排序和跨象限移动
+        async function reorderTasks(targetTaskId, before) {
+            var draggedTask = tasksCache.find(function(t) { return t.id === draggedTaskId; });
+            var targetTask = tasksCache.find(function(t) { return t.id === targetTaskId; });
+            if (!draggedTask || !targetTask) return;
+            var oldQuadrant = draggedTask.quadrant;
+            draggedTask.quadrant = targetTask.quadrant;
+            var qTasks = tasksCache.filter(function(t) { return t.quadrant === draggedTask.quadrant && t.id !== draggedTaskId; })
+                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+            var targetIndex = qTasks.findIndex(function(t) { return t.id === targetTaskId; });
+            if (before) qTasks.splice(targetIndex, 0, draggedTask);
+            else qTasks.splice(targetIndex + 1, 0, draggedTask);
+            qTasks.forEach(function(t, i) { t.order = i; });
+            var otherTasks = tasksCache.filter(function(t) { return t.quadrant !== draggedTask.quadrant; })
+                .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+            tasksCache = qTasks.concat(otherTasks);
+            showLoading();
+            render();
+            bindQuadrantDropEvents();
+            try {
+                await saveQuadrant(draggedTask.quadrant);
+                if (oldQuadrant !== draggedTask.quadrant) await saveQuadrant(oldQuadrant);
+            } catch (e) { showStatus('保存失败: ' + e.message, true); }
+            hideLoading();
+        }
+
         function bindQuadrantDropEvents() {
             var quadrants = ['q1', 'q2', 'q3', 'q4'];
             quadrants.forEach(function(q) {
@@ -1756,7 +1707,7 @@
             });
         }
 
-        // 应用初始化：检查配置状态，已配置则自动连接并加载数据，最后渲染界面
+        // ========== 应用初始化 ==========
         (async function init() {
             console.log('[init] starting, configured:', isConfigured());
             if (isConfigured()) {
