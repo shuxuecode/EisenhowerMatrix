@@ -6,7 +6,7 @@
     <title>四象限工作法 - 艾森豪威尔矩阵</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        
         body {
             width: 100vw;
             height: 100vh;
@@ -18,7 +18,83 @@
             flex-direction: column;
             align-items: center;
         }
+        
+        .header { text-align: center; margin-bottom: 20px; }
+        
+        h1 {
+            color: #fff;
+            font-size: 2rem;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+        }
+        
+        .subtitle { color: #e94560; font-size: 1rem; margin-top: 5px; }
 
+        .back-link {
+            color: #ffd93d;
+            font-size: 0.9rem;
+            text-decoration: none;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .add-bar {
+            display: flex;
+            gap: 10px;
+            max-width: 1000px;
+            width: 100%;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .add-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 18px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            backdrop-filter: blur(10px);
+            outline: none;
+        }
+        
+        .add-bar input:focus { border-color: #ffd93d; }
+        
+        .add-bar input::placeholder { color: rgba(255,255,255,0.5); }
+        
+        .add-bar select {
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            backdrop-filter: blur(10px);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .add-bar select option { background: #16213e; color: #fff; }
+
+        .btn-add {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #4d96ff, #6bcb77);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        .btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(77,150,255,0.4); }
+        
         .matrix-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -26,7 +102,7 @@
             max-width: 1400px;
             width: 100%;
         }
-
+        
         .quadrant {
             border-radius: 18px;
             padding: 25px 20px 20px;
@@ -52,14 +128,14 @@
         .quadrant-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }
         .quadrant-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
         .quadrant-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
-
+        
         .quadrant:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
 
         .q1 { background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%); grid-column: 2; grid-row: 1; }
         .q2 { background: linear-gradient(135deg, #4d96ff 0%, #6bcb77 100%); grid-column: 1; grid-row: 1; }
         .q3 { background: linear-gradient(135deg, #ff9f43 0%, #ffd93d 100%); grid-column: 2; grid-row: 2; }
         .q4 { background: linear-gradient(135deg, #9b59b6 0%, #e056fd 100%); grid-column: 1; grid-row: 2; }
-
+        
         .quadrant-number {
             position: absolute;
             top: 10px;
@@ -69,7 +145,7 @@
             opacity: 0.15;
             color: #fff;
         }
-
+        
         .btn-quadrant-add {
             position: absolute;
             top: 14px;
@@ -140,8 +216,8 @@
         }
 
         .inline-input-wrap button:hover { background: rgba(255,255,255,0.5); }
-
-        .quadrant-title {
+        
+.quadrant-title {
             font-size: 1.2rem;
             font-weight: bold;
             color: #fff;
@@ -154,20 +230,27 @@
             color: rgba(255,255,255,0.8);
             font-weight: bold;
         }
+        
+        .quadrant-subtitle {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
 
         .quadrant-action {
             font-size: 0.8rem;
             color: rgba(255,255,255,0.7);
             margin-bottom: 12px;
         }
-
+        
         .task-list {
             list-style: none;
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-
+        
         .task-item {
             display: flex;
             align-items: flex-start;
@@ -180,24 +263,24 @@
             transition: all 0.2s ease;
             animation: slideIn 0.3s ease;
         }
-
+        
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
+        
         .task-item:hover { background: rgba(255,255,255,0.3); }
-
+        
         .task-item[draggable="true"] { cursor: grab; }
-
+        
         .task-item.dragging { opacity: 0.4; transform: scale(0.95); }
-
+        
         .task-item.drag-over-item { border-top: 2px solid rgba(255,255,255,0.8); }
 
         .quadrant.drag-over { box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 20px 40px rgba(0,0,0,0.5); transform: scale(1.02); }
-
+        
         .task-item.done { opacity: 0.5; }
-
+        
         .task-item.done .task-text { text-decoration: line-through; }
 
         .task-check {
@@ -221,9 +304,9 @@
             min-width: 16px;
             text-align: center;
         }
-
+        
         .task-check:hover { background: rgba(255,255,255,0.3); }
-
+        
         .task-item.done .task-check {
             background: rgba(255,255,255,0.8);
             border-color: #fff;
@@ -287,7 +370,7 @@
         }
 
         .task-expand:hover { background: rgba(255,255,255,0.4); }
-
+        
         .task-item.expanded .task-expand { transform: rotate(180deg); }
 
         .edit-form {
@@ -354,7 +437,7 @@
             transition: all 0.2s ease;
             flex-shrink: 0;
         }
-
+        
         .task-delete:hover { background: rgba(255,255,255,0.5); color: #fff; }
 
         .empty-tip {
@@ -740,6 +823,13 @@
 
         .btn-trash-delete:hover { background: rgba(233,69,96,0.5); color: #fff; }
 
+        .trash-empty {
+            color: rgba(255,255,255,0.3);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
         @media (max-width: 768px) {
             h1 { font-size: 1.5rem; }
             .matrix-container { grid-template-columns: 1fr; }
@@ -774,7 +864,7 @@
                 <ul class="task-list" id="list-q2"></ul>
             </div>
         </div>
-
+        
         <div class="quadrant q1" id="q1">
             <div class="quadrant-header">
                 <div class="quadrant-number">I</div>
@@ -794,7 +884,7 @@
                 <ul class="task-list" id="list-q1"></ul>
             </div>
         </div>
-
+        
         <div class="quadrant q4" id="q4">
             <div class="quadrant-header">
                 <div class="quadrant-number">IV</div>
@@ -814,7 +904,7 @@
                 <ul class="task-list" id="list-q4"></ul>
             </div>
         </div>
-
+        
         <div class="quadrant q3" id="q3">
             <div class="quadrant-header">
                 <div class="quadrant-number">III</div>
@@ -869,15 +959,21 @@
 
     <script>
         // ========== 常量 & 全局变量 ==========
-        var CONFIG_KEY = 'eisenhower_github_config';
-        var DATA_FILE_PATH = 'eisenhower/data.json';
-        var TRASH_FILE_PATH = 'eisenhower/trash.json';
+        const CONFIG_KEY = 'eisenhower_github_config';
 
-        var tasksCache = [];
-        var fileShas = {};
-        var apiToken = '';
-        var apiRepoOwner = '';
-        var apiRepoName = '';
+        const FILE_PATH_Q1 = 'eisenhower/q1.jsonl';
+        const FILE_PATH_Q2 = 'eisenhower/q2.jsonl';
+        const FILE_PATH_Q3 = 'eisenhower/q3.jsonl';
+        const FILE_PATH_Q4 = 'eisenhower/q4.jsonl';
+        const FILE_PATH_TRASH = 'eisenhower/trash.jsonl';
+
+        const FILE_MAP = { q1: FILE_PATH_Q1, q2: FILE_PATH_Q2, q3: FILE_PATH_Q3, q4: FILE_PATH_Q4, trash: FILE_PATH_TRASH };
+
+        let tasksCache = [];
+        let fileShas = {};
+        let apiToken = '';
+        let apiRepoOwner = '';
+        let apiRepoName = '';
         var saveLocks = {};
         var connectionAttempted = false;
         var trashExpanded = false;
@@ -895,7 +991,7 @@
         // ========== 配置管理 ==========
         function loadConfig() {
             try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { token: '', repo: '', branch: 'main' }; }
-            catch (e) { return { token: '', repo: '', branch: 'main' }; }
+            catch { return { token: '', repo: '', branch: 'main' }; }
         }
 
         function saveConfig(config) { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
@@ -926,20 +1022,29 @@
         }
 
         async function apiGet(url) {
+            console.log('[apiGet]', url);
             var resp = await fetch(url, { headers: apiHeaders(), cache: 'no-store' });
             if (!resp.ok) {
                 var errText = await resp.text();
-                throw new Error(parseApiError(resp.status, errText));
+                var msg = parseApiError(resp.status, errText);
+                console.error('[apiGet] FAIL', resp.status, msg);
+                throw new Error(msg);
             }
-            return await resp.json();
+            var data = await resp.json();
+            console.log('[apiGet] OK');
+            return data;
         }
 
         async function apiPut(url, body) {
+            console.log('[apiPut]', url, 'sha:', body.sha ? body.sha.substring(0, 7) : 'none', 'branch:', body.branch);
             var resp = await fetch(url, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(body), cache: 'no-store' });
             var respText = await resp.text();
             if (!resp.ok) {
-                throw new Error(parseApiError(resp.status, respText));
+                var msg = parseApiError(resp.status, respText);
+                console.error('[apiPut] FAIL', resp.status, msg);
+                throw new Error(msg);
             }
+            console.log('[apiPut] OK');
             return JSON.parse(respText);
         }
 
@@ -974,121 +1079,101 @@
             return apiRepoUrl() + '/contents/' + path;
         }
 
-        // ========== 数据文件读写 ==========
-        async function fetchDataFile() {
-            var branch = getBranch();
+        async function testConnection(config) {
+            if (!initApi(config)) return false;
             try {
-                var url = apiContentsUrl(DATA_FILE_PATH) + '?ref=' + encodeURIComponent(branch);
-                var info = await apiGet(url);
-                fileShas[DATA_FILE_PATH] = info.sha;
-                var content = base64Decode(info.content);
-                if (!content || !content.trim()) return { q1: [], q2: [], q3: [], q4: [] };
-                return JSON.parse(content);
-            } catch (e) {
-                fileShas[DATA_FILE_PATH] = null;
-                return { q1: [], q2: [], q3: [], q4: [] };
-            }
+                await apiGet(apiRepoUrl());
+                return true;
+            } catch (e) { return false; }
         }
 
-        async function fetchTrashFile() {
+        async function fetchFileContent(path) {
             var branch = getBranch();
             try {
-                var url = apiContentsUrl(TRASH_FILE_PATH) + '?ref=' + encodeURIComponent(branch);
+                var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
                 var info = await apiGet(url);
-                fileShas[TRASH_FILE_PATH] = info.sha;
+                fileShas[path] = info.sha;
                 var content = base64Decode(info.content);
                 if (!content || !content.trim()) return [];
-                return JSON.parse(content);
+                return content.split('\n').filter(function(line) { return line.trim(); }).map(function(line) {
+                    return JSON.parse(line);
+                });
             } catch (e) {
-                fileShas[TRASH_FILE_PATH] = null;
+                fileShas[path] = null;
                 return [];
             }
         }
 
-        function buildDataObject() {
-            var data = { q1: [], q2: [], q3: [], q4: [] };
-            tasksCache.forEach(function(t) {
-                if (!t.deleted && data[t.quadrant]) {
-                    data[t.quadrant].push(t);
-                }
-            });
-            return data;
-        }
-
-        function buildTrashArray() {
-            return tasksCache.filter(function(t) { return t.deleted; });
-        }
-
-        function isConflictError(e) {
-            return e.message && e.message.indexOf('is at') !== -1 && e.message.indexOf('but expected') !== -1;
-        }
-
-        async function saveFileWithRetry(path, buildDataFn, commitMessage) {
+        async function saveFileContent(path, tasks) {
             return withLock(path, async function() {
-                var branch = getBranch();
-                var data = buildDataFn();
-                var content = JSON.stringify(data, null, 2);
-                var encoded = base64Encode(content);
-                var body = { message: commitMessage, content: encoded, branch: branch };
+            var branch = getBranch();
+            console.log('[saveFileContent]', path, 'tasks count:', tasks.length, 'token set:', !!apiToken);
+            var content = tasks.map(function(t) { return JSON.stringify(t); }).join('\n') + (tasks.length > 0 ? '\n' : '');
+            var encoded = base64Encode(content);
+            var body = { message: 'Update ' + path, content: encoded, branch: branch };
 
-                try {
-                    var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
-                    var info = await apiGet(url);
-                    body.sha = info.sha;
-                } catch (e) {}
+            try {
+                var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
+                var info = await apiGet(url);
+                body.sha = info.sha;
+                console.log('[saveFileContent] fetched sha:', info.sha.substring(0, 7));
+            } catch (e) {
+                console.log('[saveFileContent] file not found, will create');
+            }
 
-                for (var attempt = 0; attempt < 2; attempt++) {
-                    try {
-                        var result = await apiPut(apiContentsUrl(path), body);
-                        fileShas[path] = result.content.sha;
-                        return result;
-                    } catch (e) {
-                        if (attempt === 0 && isConflictError(e)) {
-                            var retryUrl = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
-                            var retryInfo = await apiGet(retryUrl);
-                            body.sha = retryInfo.sha;
-                            continue;
-                        }
-                        throw e;
-                    }
+            console.log('[saveFileContent] saving with sha:', body.sha ? body.sha.substring(0, 7) : '(none - create)');
+            var result = await apiPut(apiContentsUrl(path), body);
+            console.log('[saveFileContent] response content:', JSON.stringify(result.content).substring(0, 200));
+            return result;
+        });
+        }
+
+        async function fileExists(path) {
+            var branch = getBranch();
+            var url = apiContentsUrl(path) + '?ref=' + encodeURIComponent(branch);
+            try {
+                await apiGet(url);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function ensureFilesExist() {
+            var keys = ['q1', 'q2', 'q3', 'q4', 'trash'];
+            for (var i = 0; i < keys.length; i++) {
+                var path = FILE_MAP[keys[i]];
+                var exists = await fileExists(path);
+                if (!exists) {
+                    var body = { message: 'Create ' + path, content: base64Encode(''), branch: getBranch() };
+                    await apiPut(apiContentsUrl(path), body);
                 }
-            });
-        }
-
-        async function saveAllData() {
-            return saveFileWithRetry(DATA_FILE_PATH, buildDataObject, 'Update data');
-        }
-
-        async function saveTrashData() {
-            return saveFileWithRetry(TRASH_FILE_PATH, buildTrashArray, 'Update trash');
+            }
         }
 
         async function loadAllTasks() {
             tasksCache = [];
-            var data = await fetchDataFile();
-            ['q1', 'q2', 'q3', 'q4'].forEach(function(key) {
-                var tasks = data[key] || [];
-                tasks.forEach(function(t) { tasksCache.push(t); });
-            });
-            var trashTasks = await fetchTrashFile();
-            trashTasks.forEach(function(t) { tasksCache.push(t); });
-        }
-
-        async function ensureFilesExist() {
-            var files = [
-                { path: DATA_FILE_PATH, content: JSON.stringify({ q1: [], q2: [], q3: [], q4: [] }, null, 2) },
-                { path: TRASH_FILE_PATH, content: JSON.stringify([], null, 2) }
-            ];
-            for (var i = 0; i < files.length; i++) {
-                var f = files[i];
-                try {
-                    var url = apiContentsUrl(f.path) + '?ref=' + encodeURIComponent(getBranch());
-                    await apiGet(url);
-                } catch (e) {
-                    var body = { message: 'Create ' + f.path, content: base64Encode(f.content), branch: getBranch() };
-                    await apiPut(apiContentsUrl(f.path), body);
+            fileShas = {};
+            var keys = ['q1', 'q2', 'q3', 'q4', 'trash'];
+            for (var i = 0; i < keys.length; i++) {
+                var tasks = await fetchFileContent(FILE_MAP[keys[i]]);
+                for (var j = 0; j < tasks.length; j++) {
+                    tasksCache.push(tasks[j]);
                 }
             }
+        }
+
+        // ========== 数据访问层 ==========
+        function getTasksForQuadrant(q) {
+            return tasksCache.filter(function(t) {
+                if (q === 'trash') return t.deleted;
+                return t.quadrant === q && !t.deleted;
+            });
+        }
+
+        async function saveQuadrant(q) {
+            var tasks = getTasksForQuadrant(q);
+            await saveFileContent(FILE_MAP[q], tasks);
         }
 
         // ========== 任务 CRUD 操作 ==========
@@ -1105,10 +1190,18 @@
             showLoading();
             var newTask = { id: Date.now(), title: title, content: content, quadrant: quadrant, done: false };
             tasksCache.push(newTask);
+            console.log('[addInlineTask] added', newTask.id, 'to', quadrant, 'token set:', !!apiToken);
             render();
             bindQuadrantDropEvents();
-            try { await saveAllData(); }
-            catch (e) { showStatus('保存失败: ' + e.message, true); }
+            try {
+                console.log('[addInlineTask] saving to', quadrant);
+                await saveQuadrant(quadrant);
+                console.log('[addInlineTask] save success');
+            }
+            catch (e) {
+                console.error('[addInlineTask] save FAILED:', e.message);
+                showStatus('保存失败: ' + e.message, true);
+            }
             hideLoading();
         }
 
@@ -1119,7 +1212,7 @@
                 showLoading();
                 render();
                 bindQuadrantDropEvents();
-                try { await saveAllData(); }
+                try { await saveQuadrant(task.quadrant); }
                 catch (e) { showStatus('保存失败: ' + e.message, true); }
                 hideLoading();
             }
@@ -1135,11 +1228,20 @@
             var task = tasksCache.find(function(t) { return t.id === id; });
             if (task) {
                 markTaskDeleted(task);
+                console.log('[deleteTask] deleted', id, 'from', task.originalQuadrant, 'token set:', !!apiToken);
                 showLoading();
                 render();
                 bindQuadrantDropEvents();
-                try { await saveAllData(); await saveTrashData(); }
-                catch (e) { showStatus('保存失败: ' + e.message, true); }
+                try {
+                    console.log('[deleteTask] saving source quadrant:', task.originalQuadrant);
+                    await saveQuadrant(task.originalQuadrant);
+                    console.log('[deleteTask] saving trash');
+                    await saveQuadrant('trash');
+                    console.log('[deleteTask] save success');
+                } catch (e) {
+                    console.error('[deleteTask] save FAILED:', e.message);
+                    showStatus('保存失败: ' + e.message, true);
+                }
                 hideLoading();
             }
         }
@@ -1154,8 +1256,10 @@
                 showLoading();
                 render();
                 bindQuadrantDropEvents();
-                try { await saveAllData(); await saveTrashData(); }
-                catch (e) { showStatus('保存失败: ' + e.message, true); }
+                try {
+                    await saveQuadrant(task.quadrant);
+                    await saveQuadrant('trash');
+                } catch (e) { showStatus('保存失败: ' + e.message, true); }
                 hideLoading();
             }
         }
@@ -1165,7 +1269,7 @@
             showLoading();
             render();
             bindQuadrantDropEvents();
-            try { await saveTrashData(); }
+            try { await saveQuadrant('trash'); }
             catch (e) { showStatus('保存失败: ' + e.message, true); }
             hideLoading();
         }
@@ -1175,7 +1279,7 @@
             showLoading();
             render();
             bindQuadrantDropEvents();
-            try { await saveTrashData(); }
+            try { await saveFileContent(FILE_PATH_TRASH, []); }
             catch (e) { showStatus('保存失败: ' + e.message, true); }
             hideLoading();
             closeTrash();
@@ -1184,12 +1288,19 @@
         async function clearDone() {
             var doneTasks = tasksCache.filter(function(t) { return t.done && !t.deleted; });
             if (doneTasks.length === 0) return;
-            doneTasks.forEach(function(t) { markTaskDeleted(t); });
+            var affectedQuadrants = {};
+            doneTasks.forEach(function(t) {
+                markTaskDeleted(t);
+                affectedQuadrants[t.originalQuadrant] = true;
+            });
             showLoading();
             render();
             bindQuadrantDropEvents();
-            try { await saveAllData(); await saveTrashData(); }
-            catch (e) { showStatus('保存失败: ' + e.message, true); }
+            var keys = Object.keys(affectedQuadrants);
+            for (var i = 0; i < keys.length; i++) {
+                try { await saveQuadrant(keys[i]); } catch (e) {}
+            }
+            try { await saveQuadrant('trash'); } catch (e) {}
             hideLoading();
         }
 
@@ -1205,10 +1316,7 @@
                 showLoading();
                 render();
                 bindQuadrantDropEvents();
-                try {
-                    if (task.deleted) { await saveTrashData(); }
-                    else { await saveAllData(); }
-                }
+                try { await saveQuadrant(task.deleted ? (task.originalQuadrant || 'q1') : task.quadrant); }
                 catch (e) { showStatus('保存失败: ' + e.message, true); }
                 hideLoading();
             }
@@ -1439,15 +1547,17 @@
                 return;
             }
 
-            try { await apiGet(apiRepoUrl()); }
-            catch (e) {
+            try {
+                await apiGet(apiRepoUrl());
+            } catch (e) {
                 showStatus('Token 或仓库无效: ' + e.message, true);
                 setConnFailed(btn);
                 return;
             }
 
-            try { await apiGet(apiRepoUrl() + '/branches/' + encodeURIComponent(branch)); }
-            catch (e) {
+            try {
+                await apiGet(apiRepoUrl() + '/branches/' + encodeURIComponent(branch));
+            } catch (e) {
                 showStatus('分支不存在: ' + e.message, true);
                 setConnFailed(btn);
                 return;
@@ -1455,15 +1565,17 @@
 
             saveConfig(config);
             showLoading();
-            try { await ensureFilesExist(); }
-            catch (e) {
-                showStatus('创建数据文件失败: ' + e.message, true);
+            try {
+                await ensureFilesExist();
+            } catch (e) {
+                showStatus('创建文件失败: ' + e.message, true);
                 setConnFailed(btn);
                 hideLoading();
                 return;
             }
-            try { await loadAllTasks(); }
-            catch (e) {
+            try {
+                await loadAllTasks();
+            } catch (e) {
                 showStatus('加载数据失败: ' + e.message, true);
                 setConnFailed(btn);
                 hideLoading();
@@ -1548,8 +1660,10 @@
             showLoading();
             render();
             bindQuadrantDropEvents();
-            try { await saveAllData(); }
-            catch (e) { showStatus('保存失败: ' + e.message, true); }
+            try {
+                await saveQuadrant(draggedTask.quadrant);
+                if (oldQuadrant !== draggedTask.quadrant) await saveQuadrant(oldQuadrant);
+            } catch (e) { showStatus('保存失败: ' + e.message, true); }
             hideLoading();
         }
 
@@ -1581,8 +1695,10 @@
                             showLoading();
                             render();
                             bindQuadrantDropEvents();
-                            try { await saveAllData(); }
-                            catch (e) { showStatus('保存失败: ' + e.message, true); }
+                            try {
+                                await saveQuadrant(q);
+                                if (oldQuadrant !== q) await saveQuadrant(oldQuadrant);
+                            } catch (e) { showStatus('保存失败: ' + e.message, true); }
                             hideLoading();
                         }
                     }
@@ -1593,20 +1709,33 @@
 
         // ========== 应用初始化 ==========
         (async function init() {
+            console.log('[init] starting, configured:', isConfigured());
             if (isConfigured()) {
                 connectionAttempted = true;
                 var config = loadConfig();
+                console.log('[init] config repo:', config.repo, 'branch:', config.branch);
                 if (initApi(config)) {
+                    console.log('[init] api initialized, token set:', !!apiToken);
                     document.getElementById('settingsBtn').classList.add('connected');
                     updateConnStatus();
                     showLoading();
-                    try { await loadAllTasks(); }
-                    catch (e) { showStatus('加载数据失败: ' + e.message, true); }
+                    try {
+                        console.log('[init] loading all tasks...');
+                        await loadAllTasks();
+                        console.log('[init] loaded', tasksCache.length, 'tasks');
+                    }
+                    catch (e) {
+                        console.error('[init] load failed:', e.message);
+                        showStatus('加载数据失败: ' + e.message, true);
+                    }
                     hideLoading();
+                } else {
+                    console.error('[init] initApi failed');
                 }
             }
             render();
             bindQuadrantDropEvents();
+            console.log('[init] completed');
         })();
     </script>
 </body>
