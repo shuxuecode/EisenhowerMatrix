@@ -307,7 +307,7 @@
         }
 
         async function toggleTask(id) {
-            var task = tasksCache.find(function(t) { return t.id === id; });
+            var task = tasksCache.find(function(t) { return String(t.id) === id; });
             if (task && !task.deleted) {
                 task.done = !task.done;
                 var item = document.querySelector('[data-task-id="' + id + '"]');
@@ -325,7 +325,7 @@
         }
 
         async function deleteTask(id) {
-            var task = tasksCache.find(function(t) { return t.id === id; });
+            var task = tasksCache.find(function(t) { return String(t.id) === id; });
             if (task) {
                 var origQuadrant = task.quadrant;
                 markTaskDeleted(task);
@@ -340,7 +340,7 @@
         }
 
         async function restoreTask(id) {
-            var task = tasksCache.find(function(t) { return t.id === id; });
+            var task = tasksCache.find(function(t) { return String(t.id) === id; });
             if (task) {
                 task.deleted = false;
                 task.quadrant = task.originalQuadrant || 'q1';
@@ -357,7 +357,7 @@
         }
 
         async function permanentDelete(id) {
-            tasksCache = tasksCache.filter(function(t) { return t.id !== id; });
+            tasksCache = tasksCache.filter(function(t) { return String(t.id) !== id; });
             renderTrash();
             try { await saveTrashData(); }
             catch (e) { showStatus('保存失败: ' + e.message, true); }
@@ -395,7 +395,7 @@
             var title = editEl.querySelector('.edit-title').value.trim();
             if (!title) return;
             var content = editEl.querySelector('.edit-content').value.trim();
-            var task = tasksCache.find(function(t) { return t.id === id; });
+            var task = tasksCache.find(function(t) { return String(t.id) === id; });
             if (task) {
                 task.title = title;
                 task.content = content;
@@ -434,7 +434,7 @@
                 + '<div class="task-check" onclick="App.toggleTask(\'' + id + '\')"></div>'
                 + '<div class="task-text" ondblclick="App.startEdit(\'' + id + '\')" id="task-display-' + id + '">'
                 + '<div class="task-title">' + escapeHtml(t.title || t.text) + '</div>'
-                + (hasContent ? '<div class="task-content">' + escapeHtml(t.content) + '</div>' : '')
+                + (hasContent ? '<div class="task-content-collapsed" style="display:none;color:rgba(255,255,255,0.6);font-size:0.85rem;font-weight:normal;line-height:1.3;margin-top:4px">' + escapeHtml(t.content) + '</div>' : '')
                 + '</div>'
                 + '<div class="task-text" id="task-edit-' + id + '" style="display:none">'
                 + '<div class="edit-form">'
@@ -444,7 +444,7 @@
                 + '<button class="btn-edit-save" onclick="App.saveEdit(\'' + id + '\')">保存</button>'
                 + '<button class="btn-edit-cancel" onclick="App.cancelEdit(\'' + id + '\')">取消</button>'
                 + '</div></div></div>'
-                + (hasContent ? '<button class="task-expand" onclick="App.toggleExpand(this)">▼</button>' : '')
+                + (hasContent ? '<button class="task-expand" onclick="App.toggleCollapse(\'' + id + '\')">▼</button>' : '')
                 + '<button class="task-delete" onclick="App.deleteTask(\'' + id + '\')">×</button>'
                 + '</li>';
         }
@@ -458,6 +458,7 @@
             } else {
                 list.innerHTML = qTasks.map(function(t, i) { return buildTaskHtml(t, i); }).join('');
             }
+            applyContentWrapping();
         }
 
         function renderStats() {
@@ -527,6 +528,8 @@
                 }
             });
 
+            applyContentWrapping();
+
             dom.statsBar.innerHTML =
                 '<div class="stat-card"><div class="stat-count">' + totalActive + '</div><div class="stat-label">总任务</div></div>'
                 + '<div class="stat-card"><div class="stat-count">' + (totalActive - totalDone) + '</div><div class="stat-label">待完成</div></div>'
@@ -588,15 +591,90 @@
         }
 
         // ========== UI 交互 - 展开/收起 ==========
-        function toggleExpand(el) {
-            el.closest('.task-item').classList.toggle('expanded');
-        }
-
         function toggleTrashDetail(id) {
             var content = document.getElementById('trash-content-' + id);
             if (content) {
                 content.style.display = content.style.display === 'none' ? 'block' : 'none';
             }
+        }
+
+        function toggleCollapse(id) {
+            var item = document.querySelector('[data-task-id="' + id + '"]');
+            if (item) {
+                var collapsedDiv = item.querySelector('.task-content-collapsed');
+                var expandBtn = item.querySelector('.task-expand');
+                if (collapsedDiv) {
+                    if (collapsedDiv.style.display === 'none') {
+                        collapsedDiv.style.display = 'block';
+                        if (expandBtn) expandBtn.style.transform = 'rotate(180deg)';
+                    } else {
+                        collapsedDiv.style.display = 'none';
+                        if (expandBtn) expandBtn.style.transform = '';
+                    }
+                }
+            }
+        }
+
+        function applyContentWrapping() {
+            requestAnimationFrame(function() {
+                QUADRANT_CONFIG.forEach(function(q) {
+                    var list = dom['list-' + q];
+                    if (!list) return;
+                    var items = list.querySelectorAll('.task-item');
+                    for (var i = 0; i < items.length; i++) {
+                        var item = items[i];
+                        var collapsedDiv = item.querySelector('.task-content-collapsed');
+                        var expandBtn = item.querySelector('.task-expand');
+                        if (!collapsedDiv || !expandBtn) continue;
+
+                        var titleDiv = item.querySelector('.task-title');
+                        var contentText = collapsedDiv.textContent;
+
+                        // Temporarily add content inline to measure combined height
+                        var tempSpace = document.createTextNode(' ');
+                        var tempSpan = document.createElement('span');
+                        tempSpan.className = 'task-content-inline';
+                        tempSpan.style.cssText = 'color:rgba(255,255,255,0.6);font-size:0.85rem;font-weight:normal';
+                        tempSpan.textContent = contentText;
+                        titleDiv.appendChild(tempSpace);
+                        titleDiv.appendChild(tempSpan);
+
+                        var combinedHeight = titleDiv.offsetHeight;
+
+                        // Remove temp elements
+                        tempSpan.remove();
+                        tempSpace.remove();
+
+                        // Get line height in pixels
+                        var computedStyle = getComputedStyle(titleDiv);
+                        var lineHeightStr = computedStyle.lineHeight;
+                        var lineHeight;
+                        if (lineHeightStr === 'normal') {
+                            lineHeight = parseFloat(computedStyle.fontSize) * 1.2;
+                        } else {
+                            var parsed = parseFloat(lineHeightStr);
+                            // Unitless factor: multiply by font-size to get pixels
+                            if (/\d$/.test(lineHeightStr)) {
+                                lineHeight = parsed * parseFloat(computedStyle.fontSize);
+                            } else {
+                                lineHeight = parsed;
+                            }
+                        }
+
+                        // If title + content fits in one line, show inline; otherwise keep collapsed
+                        if (combinedHeight <= lineHeight * 1.1) {
+                            var inlineSpan = document.createElement('span');
+                            inlineSpan.className = 'task-content-inline';
+                            inlineSpan.style.cssText = 'color:rgba(255,255,255,0.6);font-size:0.85rem;font-weight:normal';
+                            inlineSpan.textContent = contentText;
+                            titleDiv.appendChild(document.createTextNode(' '));
+                            titleDiv.appendChild(inlineSpan);
+                            collapsedDiv.remove();
+                            expandBtn.remove();
+                        }
+                    }
+                });
+            });
         }
 
         // ========== UI 交互 - 加载/状态 ==========
@@ -801,15 +879,15 @@
             if (draggedTaskId === null) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            var targetId = parseInt(el.dataset.taskId);
+            var targetId = el.dataset.taskId;
             if (targetId !== draggedTaskId) { el.classList.add('drag-over-item'); }
         }
 
         function onDragLeaveItem(el) { el.classList.remove('drag-over-item'); }
 
         async function reorderTasks(targetTaskId, before) {
-            var draggedTask = tasksCache.find(function(t) { return t.id === draggedTaskId; });
-            var targetTask = tasksCache.find(function(t) { return t.id === targetTaskId; });
+            var draggedTask = tasksCache.find(function(t) { return String(t.id) === draggedTaskId; });
+            var targetTask = tasksCache.find(function(t) { return String(t.id) === targetTaskId; });
             if (!draggedTask || !targetTask) return;
             var oldQuadrant = draggedTask.quadrant;
             draggedTask.quadrant = targetTask.quadrant;
@@ -843,7 +921,7 @@
                     if (draggedTaskId === null) return;
                     var dropTarget = e.target.closest('.task-item');
                     if (dropTarget) {
-                        var targetId = parseInt(dropTarget.dataset.taskId);
+                        var targetId = dropTarget.dataset.taskId;
                         var rect = dropTarget.getBoundingClientRect();
                         var midY = rect.top + rect.height / 2;
                         var before = e.clientY < midY;
@@ -899,10 +977,10 @@
             saveEdit: saveEdit,
             cancelEdit: cancelEdit,
             startEdit: startEdit,
-            toggleExpand: toggleExpand,
             deleteTask: deleteTask,
             clearDone: clearDone,
             toggleTrashDetail: toggleTrashDetail,
+            toggleCollapse: toggleCollapse,
             restoreTask: restoreTask,
             permanentDelete: permanentDelete,
             toggleTrash: toggleTrash,
