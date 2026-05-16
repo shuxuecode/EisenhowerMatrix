@@ -1,0 +1,24 @@
+# <type>(<scope>): <subject>
+#
+# type:
+#   feat     新功能
+#   fix      修复 bug
+#   docs     文档变更
+#   style    代码格式（不影响逻辑）
+#   refactor 重构（非新功能、非修复）
+#   perf     性能优化
+#   test     添加/修改测试
+#   chore    构建/工具/依赖变更
+#   revert   回退提交
+#
+# scope:   影响范围（可选，如 auth, api, ui）
+# subject: 简短描述（不超过 50 字符，不加句号）
+#
+# --- body（可选，详细说明） ---
+# 为什么做这个变更？之前的行为是什么？新的行为是什么？
+#
+# --- footer（可选） ---
+# 关联信息：
+#   Closes #123       关闭 issue
+#   Fixes #456        修复 issue
+#   BREAKING CHANGE   破坏性变更说明

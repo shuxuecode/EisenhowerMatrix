@@ -11,20 +11,20 @@
 
     <div class="stats-bar" id="statsBar"></div>
 
-    <button class="trash-btn" id="trashBtn" onclick="App.toggleTrash()">🗑️<span class="trash-count" id="trashCount"></span></button>
-    <div class="trash-overlay" id="trashOverlay" onclick="App.closeTrash()"></div>
+    <button class="trash-btn" id="trashBtn">🗑️<span class="trash-count" id="trashCount"></span></button>
+    <div class="trash-overlay" id="trashOverlay"></div>
     <div class="trash-panel" id="trashPanel">
         <div class="trash-header">
             <div class="trash-title">🗑️ 回收站</div>
-            <button class="clear-btn" onclick="App.clearTrash()" style="padding:6px 14px;font-size:0.8rem">清空回收站</button>
+            <button class="clear-btn" id="btnClearTrash" style="padding:6px 14px;font-size:0.8rem">清空回收站</button>
         </div>
         <ul class="trash-list" id="trashList"></ul>
     </div>
 
     <div class="loading-bar" id="loadingBar"></div>
 
-    <button class="settings-btn" id="settingsBtn" onclick="App.toggleSettings()" title="GitHub 设置">⚙️</button>
-    <div class="settings-overlay" id="settingsOverlay" onclick="App.closeSettings()"></div>
+    <button class="settings-btn" id="settingsBtn" title="GitHub 设置">⚙️</button>
+    <div class="settings-overlay" id="settingsOverlay"></div>
     <div class="settings-panel" id="settingsPanel">
         <h3>GitHub 连接设置 <span id="connStatus" class="conn-status"></span></h3>
         <label>Personal Access Token</label>
@@ -34,8 +34,8 @@
         <label>分支</label>
         <input type="text" id="configBranch" value="main" placeholder="main" />
         <div class="settings-buttons">
-            <button class="btn-connect" id="btnConnect" onclick="App.connectGitHub()">连接</button>
-            <button class="btn-disconnect" onclick="App.disconnectGitHub()">断开</button>
+            <button class="btn-connect" id="btnConnect">连接</button>
+            <button class="btn-disconnect" id="btnDisconnect">断开</button>
         </div>
         <div class="status-msg" id="settingsStatus"></div>
     </div>
