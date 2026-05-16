@@ -176,7 +176,7 @@ async function fetchDataFile() {
         var info = await apiGet(url);
         fileShas[DATA_FILE_PATH] = info.sha;
         var content = base64Decode(info.content);
-        if (!content || !content.trim()) return { q1: [], q2: [], q3: [], q4: [], _trash: [] };
+        if (!content || !content.trim()) return { q1: [], q2: [], q3: [], q4: [], _trash: [], _ts: 0 };
         var data = JSON.parse(content);
         if (!data._trash) data._trash = [];
         return data;
@@ -187,7 +187,7 @@ async function fetchDataFile() {
 }
 
 function buildDataObject() {
-    var data = { q1: [], q2: [], q3: [], q4: [], _trash: [] };
+    var data = { q1: [], q2: [], q3: [], q4: [], _trash: [], _ts: Date.now() };
     tasksCache.forEach(function(t) {
         if (t.deleted) {
             data._trash.push(t);
@@ -201,12 +201,12 @@ function buildDataObject() {
 function saveAllData() {
     var data = buildDataObject();
     saveLocal(data);
-    syncToGitHub();
+    syncToGitHub(data);
 }
 
-function syncToGitHub() {
+function syncToGitHub(data) {
     if (!apiToken) return;
-    saveFileWithRetry(DATA_FILE_PATH, buildDataObject, 'Update data').catch(function() {});
+    saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Update data').catch(function() {});
 }
 
 function isConflictError(e) {
@@ -263,14 +263,18 @@ async function loadAllTasks() {
     if (isConfigured() && apiToken) {
         try {
             var data = await fetchDataFile();
-            loadTasksIntoCache(data);
-            saveLocal(data);
+            var localTs = local ? (local._ts || 0) : 0;
+            var remoteTs = data._ts || 0;
+            if (!local || remoteTs > localTs) {
+                loadTasksIntoCache(data);
+                saveLocal(data);
+            }
         } catch (e) {}
     }
 }
 
 async function ensureFilesExist() {
-    var defaultData = { q1: [], q2: [], q3: [], q4: [], _trash: [] };
+    var defaultData = { q1: [], q2: [], q3: [], q4: [], _trash: [], _ts: 0 };
     try {
         var url = apiContentsUrl(DATA_FILE_PATH) + '?ref=' + encodeURIComponent(getBranch());
         await apiGet(url);
@@ -349,10 +353,17 @@ function permanentDelete(id) {
     saveAllData();
 }
 
-function clearTrash() {
+async function clearTrash() {
     tasksCache = tasksCache.filter(function(t) { return !t.deleted; });
     renderTrash();
-    saveAllData();
+    var data = buildDataObject();
+    saveLocal(data);
+    if (apiToken) {
+        showLoading();
+        try { await saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Clear trash'); }
+        catch (e) {}
+        hideLoading();
+    }
     closeTrash();
 }
 

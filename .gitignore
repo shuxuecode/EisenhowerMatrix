@@ -1,2 +1,4 @@
 .claude/
 *.log
+.DS_Store
+upload.sh
