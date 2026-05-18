@@ -24,12 +24,15 @@
 
     <div class="loading-bar" id="loadingBar"></div>
 
+    <div class="toast" id="toast"></div>
+
     <button class="settings-btn" id="settingsBtn" title="GitHub 设置">⚙️</button>
     <div class="settings-overlay" id="settingsOverlay"></div>
     <div class="settings-panel" id="settingsPanel">
         <h3>GitHub 连接设置 <span id="connStatus" class="conn-status"></span></h3>
-        <label>Personal Access Token</label>
-        <input type="password" id="configToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+        <label>Personal Access Token <span style="font-weight:normal;font-size:0.75rem;color:var(--white-50)">— 建议使用 Fine-grained token</span></label>
+        <input type="password" id="configToken" placeholder="github_pat_xxxxxxxxxxxxxxxxxxxx" />
+        <div class="token-hint">仅需授权 <strong>单个仓库</strong> 的 <strong>Contents</strong> 读写权限，并设置过期时间以保障安全。</div>
         <label>仓库 (owner/repo)</label>
         <input type="text" id="configRepo" placeholder="myusername/my-repo" />
         <label>分支</label>

@@ -533,6 +533,13 @@ body {
 .settings-panel input:focus { border-color: var(--yellow); }
 .settings-panel input::placeholder { color: var(--white-40); }
 
+.token-hint {
+    color: var(--white-40);
+    font-size: 0.72rem;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
 .settings-panel .settings-buttons {
     display: flex;
     gap: 10px;
@@ -595,6 +602,37 @@ body {
 .loading-bar.active {
     opacity: 1;
     transition: width 0.3s ease, opacity 0.15s ease;
+}
+
+.toast {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: var(--white);
+    backdrop-filter: blur(10px);
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.success {
+    background: rgba(107, 203, 119, 0.85);
+    border: 1px solid rgba(107, 203, 119, 0.5);
+}
+
+.toast.error {
+    background: rgba(233, 69, 96, 0.85);
+    border: 1px solid rgba(233, 69, 96, 0.5);
 }
 
 .trash-btn .trash-count {
@@ -753,7 +791,6 @@ body {
 
 @media (max-width: 768px) {
     body { overflow-x: hidden; overflow-y: auto; height: auto; min-height: 100vh; padding: 12px 6px; }
-    h1 { font-size: 1.3rem; }
     .matrix-container { grid-template-columns: 1fr; gap: 10px; }
     .q1, .q2, .q3, .q4 { grid-column: 1; }
     .q1 { grid-row: 1; }

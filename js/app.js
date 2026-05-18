@@ -15,7 +15,7 @@ function loadLocal() {
 }
 
 function saveLocal(data) {
-    try { localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data)); } catch (e) {}
+    try { localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data)); } catch (e) { console.error('保存本地数据失败:', e); }
 }
 
 var tasksCache = [];
@@ -28,13 +28,15 @@ var connectionAttempted = false;
 var trashExpanded = false;
 var settingsVisible = false;
 var draggedTaskId = null;
+var saveDebounceTimer = null;
+var toastTimer = null;
 
 // ========== DOM 缓存（静态元素初始化后缓存，避免重复查询） ==========
 var dom = {};
 function initDomCache() {
     ['statsBar', 'trashBtn', 'trashOverlay', 'trashPanel', 'trashList',
      'trashCount', 'loadingBar', 'settingsBtn', 'settingsOverlay', 'settingsPanel',
-     'connStatus', 'configToken', 'configRepo', 'configBranch', 'btnConnect', 'btnDisconnect', 'btnClearTrash', 'settingsStatus']
+     'connStatus', 'configToken', 'configRepo', 'configBranch', 'btnConnect', 'btnDisconnect', 'btnClearTrash', 'settingsStatus', 'toast']
     .forEach(function(id) { dom[id] = document.getElementById(id); });
 }
 
@@ -204,9 +206,21 @@ function saveAllData() {
     syncToGitHub(data);
 }
 
+function debouncedSaveAllData() {
+    var data = buildDataObject();
+    saveLocal(data);
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(function() { syncToGitHub(data); }, 500);
+}
+
 function syncToGitHub(data) {
     if (!apiToken) return;
-    saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Update data').catch(function() {});
+    saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Update data').then(function() {
+        showToast('已同步', 'success');
+    }).catch(function(e) {
+        console.error('GitHub 同步失败:', e.message);
+        showToast('同步失败', 'error');
+    });
 }
 
 function isConflictError(e) {
@@ -269,7 +283,7 @@ async function loadAllTasks() {
                 loadTasksIntoCache(data);
                 saveLocal(data);
             }
-        } catch (e) {}
+        } catch (e) { console.error('加载远端数据失败:', e.message); }
     }
 }
 
@@ -301,7 +315,7 @@ function addInlineTask(quadrant) {
     tasksCache.push(newTask);
     renderQuadrant(quadrant);
     renderStats();
-    saveAllData();
+    debouncedSaveAllData();
 }
 
 function toggleTask(id) {
@@ -311,7 +325,7 @@ function toggleTask(id) {
         var item = document.querySelector('[data-task-id="' + id + '"]');
         if (item) item.classList.toggle('done');
         renderStats();
-        saveAllData();
+        debouncedSaveAllData();
     }
 }
 
@@ -329,7 +343,7 @@ function deleteTask(id) {
         renderQuadrant(origQuadrant);
         renderStats();
         renderTrash();
-        saveAllData();
+        debouncedSaveAllData();
     }
 }
 
@@ -343,14 +357,14 @@ function restoreTask(id) {
         renderQuadrant(task.quadrant);
         renderStats();
         renderTrash();
-        saveAllData();
+        debouncedSaveAllData();
     }
 }
 
 function permanentDelete(id) {
     tasksCache = tasksCache.filter(function(t) { return String(t.id) !== id; });
     renderTrash();
-    saveAllData();
+    debouncedSaveAllData();
 }
 
 async function clearTrash() {
@@ -360,8 +374,13 @@ async function clearTrash() {
     saveLocal(data);
     if (apiToken) {
         showLoading();
-        try { await saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Clear trash'); }
-        catch (e) {}
+        try {
+            await saveFileWithRetry(DATA_FILE_PATH, function() { return data; }, 'Clear trash');
+            showToast('已同步', 'success');
+        } catch (e) {
+            console.error('清空回收站同步失败:', e.message);
+            showToast('同步失败', 'error');
+        }
         hideLoading();
     }
     closeTrash();
@@ -372,13 +391,13 @@ function clearDone() {
     if (doneTasks.length === 0) return;
     var affectedQuadrants = {};
     doneTasks.forEach(function(t) {
+        affectedQuadrants[t.quadrant] = true;
         markTaskDeleted(t);
-        affectedQuadrants[t.originalQuadrant] = true;
     });
     Object.keys(affectedQuadrants).forEach(function(q) { renderQuadrant(q); });
     renderStats();
     renderTrash();
-    saveAllData();
+    debouncedSaveAllData();
 }
 
 function saveEdit(id) {
@@ -393,7 +412,7 @@ function saveEdit(id) {
         task.content = content;
         if (task.deleted) { renderTrash(); }
         else { renderQuadrant(task.quadrant); renderStats(); }
-        saveAllData();
+        debouncedSaveAllData();
     }
 }
 
@@ -417,12 +436,12 @@ function buildTaskHtml(t, index) {
         + '<span class="task-index">' + (index + 1) + '</span>'
         + '<div class="task-check" data-action="toggle"></div>'
         + '<div class="task-text" data-action="edit" id="task-display-' + id + '">'
-        + '<div class="task-title">' + escapeHtml(t.title || t.text) + '</div>'
+        + '<div class="task-title">' + escapeHtml(t.title) + '</div>'
         + (hasContent ? '<div class="task-content-collapsed">' + escapeHtml(t.content) + '</div>' : '')
         + '</div>'
         + '<div class="task-edit-hidden task-text" id="task-edit-' + id + '">'
         + '<div class="edit-form">'
-        + '<input type="text" class="edit-title" value="' + escapeAttr(t.title || t.text) + '" placeholder="标题" />'
+        + '<input type="text" class="edit-title" value="' + escapeAttr(t.title) + '" placeholder="标题" />'
         + '<input type="text" class="edit-content" value="' + escapeAttr(t.content || '') + '" placeholder="内容（可选）" />'
         + '<div class="edit-form-buttons">'
         + '<button class="btn-edit-save" data-action="save-edit">保存</button>'
@@ -473,7 +492,7 @@ function renderTrash() {
             var hasContent = !!t.content;
             var tid = escapeAttr(String(t.id));
             return '<li class="trash-item" id="trash-item-' + tid + '">'
-                + '<span class="trash-title-text">' + escapeHtml(t.title || t.text) + '</span>'
+                + '<span class="trash-title-text">' + escapeHtml(t.title) + '</span>'
                 + (hasContent ? '<div class="trash-content" id="trash-content-' + tid + '">' + escapeHtml(t.content) + '</div>' : '')
                 + '<span class="trash-time">' + time + '</span>'
                 + (hasContent ? '<button class="task-expand" data-action="trash-detail">▼</button>' : '')
@@ -553,7 +572,6 @@ function applyContentWrapping() {
                 var tempSpace = document.createTextNode(' ');
                 var tempSpan = document.createElement('span');
                 tempSpan.className = 'task-content-inline';
-                tempSpan.className = 'task-content-inline';
                 tempSpan.textContent = contentText;
                 titleDiv.appendChild(tempSpace);
                 titleDiv.appendChild(tempSpan);
@@ -583,7 +601,6 @@ function applyContentWrapping() {
                 // If title + content fits in one line, show inline; otherwise keep collapsed
                 if (combinedHeight <= lineHeight * 1.1) {
                     var inlineSpan = document.createElement('span');
-                    inlineSpan.className = 'task-content-inline';
                     inlineSpan.className = 'task-content-inline';
                     inlineSpan.textContent = contentText;
                     titleDiv.appendChild(document.createTextNode(' '));
@@ -636,6 +653,17 @@ function showStatus(msg, isError) {
     }
 }
 
+function showToast(msg, type) {
+    var el = dom.toast;
+    if (toastTimer) clearTimeout(toastTimer);
+    el.textContent = msg;
+    el.className = 'toast ' + type + ' show';
+    toastTimer = setTimeout(function() {
+        el.classList.remove('show');
+        toastTimer = null;
+    }, 2000);
+}
+
 // ========== 回收站面板 ==========
 function toggleTrash() {
     trashExpanded = !trashExpanded;
@@ -678,12 +706,15 @@ function updateConnStatus() {
     if (connected) {
         el.textContent = '已连接';
         el.className = 'conn-status connected';
+        dom.btnConnect.textContent = '已连接';
     } else if (connectionAttempted) {
         el.textContent = '未连接';
         el.className = 'conn-status disconnected';
+        dom.btnConnect.textContent = '连接';
     } else {
         el.textContent = '';
         el.className = 'conn-status';
+        dom.btnConnect.textContent = '连接';
     }
 }
 
@@ -751,14 +782,12 @@ async function connectGitHub() {
     hideLoading();
     showStatus('连接成功，数据加载完成', false);
     btn.disabled = false;
-    btn.textContent = '连接';
 }
 
 function setConnFailed(btn) {
     dom.settingsBtn.classList.remove('connected');
     updateConnStatus();
     btn.disabled = false;
-    btn.textContent = '连接';
 }
 
 function disconnectGitHub() {
@@ -796,7 +825,7 @@ function reorderTasks(targetTaskId, before) {
     renderQuadrant(draggedTask.quadrant);
     if (oldQuadrant !== draggedTask.quadrant) renderQuadrant(oldQuadrant);
     renderStats();
-    saveAllData();
+    debouncedSaveAllData();
 }
 
 // ========== 全局事件委托 ==========
@@ -928,7 +957,7 @@ function bindGlobalEvents() {
                     renderQuadrant(q);
                     renderQuadrant(oldQ);
                     renderStats();
-                    saveAllData();
+                    debouncedSaveAllData();
                 }
             }
             draggedTaskId = null;
@@ -949,17 +978,16 @@ function bindGlobalEvents() {
             updateConnStatus();
         }
     }
-    // 始终从本地加载以支持离线使用
-    var local = loadLocal();
-    if (local) loadTasksIntoCache(local);
-    render();
-    // 如果已配置 GitHub，后台拉取远端数据
+    // 如果已配置 GitHub，后台拉取远端数据（内部已包含本地加载逻辑）
     if (apiToken) {
         showLoading();
-        try { await loadAllTasks(); } catch (e) {}
+        try { await loadAllTasks(); } catch (e) { console.error('初始化加载数据失败:', e.message); }
         hideLoading();
-        render();
+    } else {
+        var local = loadLocal();
+        if (local) loadTasksIntoCache(local);
     }
+    render();
 })();
 
 // Export public API
