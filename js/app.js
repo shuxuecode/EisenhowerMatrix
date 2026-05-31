@@ -15,7 +15,11 @@ function loadLocal() {
 }
 
 function saveLocal(data) {
-    try { localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data)); } catch (e) { console.error('保存本地数据失败:', e); }
+    try { localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data)); }
+    catch (e) {
+        console.error('保存本地数据失败:', e);
+        showToast('⚠️ 本地存储空间不足，数据可能无法保存！请清理浏览器存储或连接 GitHub 同步。', 'error');
+    }
 }
 
 var tasksCache = [];
@@ -184,7 +188,13 @@ async function fetchDataFile() {
         return data;
     } catch (e) {
         fileShas[DATA_FILE_PATH] = null;
-        return { q1: [], q2: [], q3: [], q4: [], _trash: [] };
+        // 仅 404 表示文件尚未创建，返回空数据是合理的
+        // 其它错误（网络中断、认证失败等）必须抛出，让 loadAllTasks 回退到本地数据
+        var isNotFound = e.message && (e.message.indexOf('404') !== -1 || e.message.indexOf('Not Found') !== -1);
+        if (isNotFound) {
+            return { q1: [], q2: [], q3: [], q4: [], _trash: [], _ts: 0 };
+        }
+        throw e;
     }
 }
 
@@ -195,6 +205,9 @@ function buildDataObject() {
             data._trash.push(t);
         } else if (data[t.quadrant]) {
             data[t.quadrant].push(t);
+        } else {
+            // quadrant 缺失或无效时，兜底归入 q1 防止静默丢失
+            data.q1.push(t);
         }
     });
     return data;
@@ -277,9 +290,11 @@ async function loadAllTasks() {
     if (isConfigured() && apiToken) {
         try {
             var data = await fetchDataFile();
-            var localTs = local ? (local._ts || 0) : 0;
+            // await 之后重新读取本地数据，获取用户在加载窗口内操作的最新时间戳
+            var freshLocal = loadLocal();
+            var localTs = freshLocal ? (freshLocal._ts || 0) : 0;
             var remoteTs = data._ts || 0;
-            if (!local || remoteTs > localTs) {
+            if (!freshLocal || remoteTs > localTs) {
                 loadTasksIntoCache(data);
                 saveLocal(data);
             }
@@ -368,6 +383,8 @@ function permanentDelete(id) {
 }
 
 async function clearTrash() {
+    // 取消待执行的 debounce 定时器，防止残留的旧数据推回 GitHub 覆盖清空操作
+    if (saveDebounceTimer) { clearTimeout(saveDebounceTimer); saveDebounceTimer = null; }
     tasksCache = tasksCache.filter(function(t) { return !t.deleted; });
     renderTrash();
     var data = buildDataObject();
