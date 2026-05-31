@@ -35,10 +35,24 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--yellow);
+    color: #333;
+    padding: 8px 16px;
+    z-index: 1000;
+    font-weight: bold;
+    transition: top 0.2s;
+}
+.skip-link:focus { top: 0; }
+
 body {
     width: 100vw;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
     background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-mid) 50%, var(--bg-blue) 100%);
     font-family: sans-serif;
     padding: 20px 10px;
@@ -111,7 +125,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     z-index: 10;
     line-height: 1;
 }
@@ -145,11 +159,10 @@ body {
     color: var(--white);
     font-size: 0.9rem;
     font-family: inherit;
-    outline: none;
 }
 
-.inline-input-wrap input::placeholder { color: var(--white-50); }
-.inline-input-wrap input:focus { border-color: var(--yellow); }
+.inline-input-wrap input::placeholder { color: var(--white-70); }
+.inline-input-wrap input:focus { border-color: var(--yellow); outline: 2px solid var(--yellow); outline-offset: -2px; }
 .inline-input-wrap input.input-error {
     border-color: #e74c3c;
     animation: shake 0.4s ease;
@@ -170,7 +183,7 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .inline-input-wrap button:hover { background: var(--white-50); }
@@ -209,16 +222,16 @@ body {
     background: var(--white-20);
     padding: 14px 16px;
     border-radius: 10px;
-    backdrop-filter: blur(5px);
     border: 1px solid var(--white-15);
-    transition: all 0.2s ease;
-    animation: slideIn 0.3s ease;
+    transition: background 0.2s ease, opacity 0.2s ease;
 }
 
 @keyframes slideIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.task-item.task-new { animation: slideIn 0.3s ease; }
 
 .task-item:hover { background: var(--white-30); }
 
@@ -240,15 +253,20 @@ body {
     border: 2px solid var(--white-60);
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s ease;
+    background: transparent;
+    transition: background 0.2s ease, border-color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1;
 }
 
 .task-index {
-    color: var(--white-50);
+    color: var(--white-70);
     font-size: 0.75rem;
     font-weight: bold;
     flex-shrink: 0;
@@ -321,7 +339,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -343,10 +361,20 @@ body {
     color: var(--white);
     font-size: 0.9rem;
     font-family: inherit;
-    outline: none;
 }
 
-.edit-form input:focus { border-color: var(--yellow); }
+.edit-form input:focus { border-color: var(--yellow); outline: 2px solid var(--yellow); outline-offset: -2px; }
+
+.edit-quadrant {
+    padding: 6px 10px;
+    border: 1px solid var(--white-40);
+    border-radius: 6px;
+    background: var(--white-25);
+    color: var(--white);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+}
 
 .edit-form-buttons {
     display: flex;
@@ -360,7 +388,7 @@ body {
     font-size: 0.8rem;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .btn-edit-save {
@@ -380,6 +408,7 @@ body {
 .task-delete {
     width: 26px;
     height: 26px;
+    padding: 6px;
     border: none;
     background: var(--white-20);
     color: var(--white-80);
@@ -389,14 +418,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
 .task-delete:hover { background: var(--white-50); color: var(--white); }
 
 .empty-tip {
-    color: var(--white-50);
+    color: var(--white-70);
     font-size: 0.8rem;
     text-align: center;
     padding: 20px 0;
@@ -432,7 +461,7 @@ body {
     color: var(--white);
     font-size: 0.85rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     font-family: inherit;
 }
 
@@ -452,7 +481,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
     backdrop-filter: blur(10px);
     z-index: 100;
 }
@@ -537,14 +566,13 @@ body {
     color: var(--white);
     font-size: 0.9rem;
     font-family: inherit;
-    outline: none;
 }
 
-.settings-panel input:focus { border-color: var(--yellow); }
-.settings-panel input::placeholder { color: var(--white-40); }
+.settings-panel input:focus { border-color: var(--yellow); outline: 2px solid var(--yellow); outline-offset: -2px; }
+.settings-panel input::placeholder { color: var(--white-70); }
 
 .token-hint {
-    color: var(--white-40);
+    color: var(--white-70);
     font-size: 0.72rem;
     margin-top: 4px;
     line-height: 1.4;
@@ -567,7 +595,7 @@ body {
     font-weight: bold;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .settings-panel .btn-connect:hover { opacity: 0.9; }
@@ -582,7 +610,7 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .settings-panel .btn-disconnect:hover { background: var(--red-30); color: var(--white); }
@@ -617,7 +645,8 @@ body {
 .toast {
     position: fixed;
     top: 16px;
-    left: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
     padding: 8px 18px;
     border-radius: 10px;
     font-size: 0.8rem;
@@ -625,14 +654,14 @@ body {
     backdrop-filter: blur(10px);
     z-index: 300;
     opacity: 0;
-    transform: translateY(-8px);
     transition: opacity 0.25s ease, transform 0.25s ease;
     pointer-events: none;
+    white-space: nowrap;
 }
 
 .toast.show {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
 }
 
 .toast.success {
@@ -664,7 +693,7 @@ body {
     position: fixed;
     bottom: 80px;
     left: 20px;
-    width: 50vw;
+    width: min(50vw, 400px);
     max-height: 70vh;
     background: var(--panel-bg-95);
     border-radius: 18px;
@@ -730,7 +759,7 @@ body {
 }
 
 .trash-time {
-    color: var(--white-40);
+    color: var(--white-70);
     font-size: 0.75rem;
     flex-shrink: 0;
 }
@@ -744,7 +773,7 @@ body {
     font-size: 0.8rem;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -753,16 +782,17 @@ body {
 .btn-trash-delete {
     width: 22px;
     height: 22px;
+    padding: 8px;
     border: none;
     background: var(--white-10);
-    color: var(--white-50);
+    color: var(--white-70);
     border-radius: 50%;
     cursor: pointer;
     font-size: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -770,7 +800,7 @@ body {
 
 .trash-content {
     display: none;
-    color: var(--white-50);
+    color: var(--white-70);
     font-size: 0.8rem;
     margin-top: 4px;
     width: 100%;

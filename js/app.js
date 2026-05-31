@@ -11,7 +11,12 @@ function loadLocal() {
         var raw = localStorage.getItem(LOCAL_DATA_KEY);
         if (!raw) return null;
         return JSON.parse(raw);
-    } catch (e) { return null; }
+    } catch (e) {
+        console.error('本地数据解析失败:', e);
+        showToast('⚠️ 本地数据损坏，已重置。如已连接 GitHub，将从远端恢复。', 'error');
+        localStorage.removeItem(LOCAL_DATA_KEY);
+        return null;
+    }
 }
 
 function saveLocal(data) {
@@ -59,7 +64,7 @@ function buildQuadrants() {
         html += '<div class="quadrant ' + q.cls + '" id="' + q.id + '">'
             + '<div class="quadrant-header">'
             + '<div class="quadrant-number">' + q.num + '</div>'
-            + '<button class="btn-quadrant-add" data-quadrant="' + q.id + '">+</button>'
+            + '<button class="btn-quadrant-add" data-quadrant="' + q.id + '" aria-label="添加任务">+</button>'
             + '<div class="quadrant-title">' + q.title + ' <span class="quadrant-subtitle-inline">' + q.subtitle + '</span></div>'
             + '<div class="quadrant-action">' + q.action + '</div>'
             + '<div class="inline-input-wrap" id="inline-' + q.id + '" data-quadrant="' + q.id + '">'
@@ -126,7 +131,7 @@ function parseApiError(respStatus, respText) {
 }
 
 async function apiGet(url) {
-    var resp = await fetch(url, { headers: apiHeaders(), cache: 'no-store' });
+    var resp = await fetch(url, { headers: apiHeaders() });
     if (!resp.ok) {
         var errText = await resp.text();
         throw new Error(parseApiError(resp.status, errText));
@@ -211,12 +216,6 @@ function buildDataObject() {
         }
     });
     return data;
-}
-
-function saveAllData() {
-    var data = buildDataObject();
-    saveLocal(data);
-    syncToGitHub(data);
 }
 
 function debouncedSaveAllData() {
@@ -317,7 +316,20 @@ async function ensureFilesExist() {
     }
 }
 
+// ========== UUID 生成（兼容不支持 crypto.randomUUID 的环境） ==========
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
 // ========== 任务 CRUD 操作 ==========
+var newTaskIds = new Set();
+// 标记新添加任务的 ID，仅对这些任务触发入场动画
+function markNewTask(id) { newTaskIds.add(id); }
+
 function addInlineTask(quadrant) {
     var wrap = dom['inline-' + quadrant];
     var titleInput = wrap.querySelector('.inline-title');
@@ -335,7 +347,8 @@ function addInlineTask(quadrant) {
     wrap.classList.remove('show');
     var minOrder = tasksCache.filter(function(t) { return t.quadrant === quadrant && !t.deleted; })
         .reduce(function(min, t) { return Math.min(min, t.order || 0); }, 0);
-    var newTask = { id: crypto.randomUUID(), title: title, content: content, quadrant: quadrant, done: false, order: minOrder - 1 };
+    var newTask = { id: generateUUID(), title: title, content: content, quadrant: quadrant, done: false, order: minOrder - 1 };
+    markNewTask(newTask.id);
     tasksCache.push(newTask);
     renderQuadrant(quadrant);
     renderStats();
@@ -347,7 +360,11 @@ function toggleTask(id) {
     if (task && !task.deleted) {
         task.done = !task.done;
         var item = document.querySelector('[data-task-id="' + id + '"]');
-        if (item) item.classList.toggle('done');
+        if (item) {
+            item.classList.toggle('done');
+            var checkbox = item.querySelector('.task-check');
+            if (checkbox) checkbox.setAttribute('aria-checked', task.done ? 'true' : 'false');
+        }
         renderStats();
         debouncedSaveAllData();
     }
@@ -436,12 +453,19 @@ function saveEdit(id) {
     var title = editEl.querySelector('.edit-title').value.trim();
     if (!title) return;
     var content = editEl.querySelector('.edit-content').value.trim();
+    var newQuadrant = editEl.querySelector('.edit-quadrant').value;
     var task = tasksCache.find(function(t) { return String(t.id) === id; });
     if (task) {
+        var oldQuadrant = task.quadrant;
         task.title = title;
         task.content = content;
+        task.quadrant = newQuadrant;
         if (task.deleted) { renderTrash(); }
-        else { renderQuadrant(task.quadrant); renderStats(); }
+        else {
+            renderQuadrant(task.quadrant);
+            if (oldQuadrant !== task.quadrant) renderQuadrant(oldQuadrant);
+            renderStats();
+        }
         debouncedSaveAllData();
     }
 }
@@ -464,7 +488,7 @@ function buildTaskHtml(t, index) {
     var id = escapeAttr(String(t.id));
     return '<li class="task-item ' + (t.done ? 'done' : '') + '" draggable="true" data-task-id="' + id + '" data-quadrant="' + t.quadrant + '">'
         + '<span class="task-index">' + (index + 1) + '</span>'
-        + '<div class="task-check" data-action="toggle"></div>'
+        + '<button class="task-check" data-action="toggle" role="checkbox" aria-checked="' + (t.done ? 'true' : 'false') + '" aria-label="标记完成" tabindex="0"></button>'
         + '<div class="task-text" data-action="edit" id="task-display-' + id + '">'
         + '<div class="task-title">' + escapeHtml(t.title) + '</div>'
         + (hasContent ? '<div class="task-content-collapsed">' + escapeHtml(t.content) + '</div>' : '')
@@ -473,12 +497,18 @@ function buildTaskHtml(t, index) {
         + '<div class="edit-form">'
         + '<input type="text" class="edit-title" value="' + escapeAttr(t.title) + '" placeholder="标题" />'
         + '<input type="text" class="edit-content" value="' + escapeAttr(t.content || '') + '" placeholder="内容（可选）" />'
+        + '<select class="edit-quadrant" aria-label="移动到象限">'
+        + '<option value="q1"' + (t.quadrant === 'q1' ? ' selected' : '') + '>I 重要且紧急</option>'
+        + '<option value="q2"' + (t.quadrant === 'q2' ? ' selected' : '') + '>II 重要不紧急</option>'
+        + '<option value="q3"' + (t.quadrant === 'q3' ? ' selected' : '') + '>III 不重要但紧急</option>'
+        + '<option value="q4"' + (t.quadrant === 'q4' ? ' selected' : '') + '>IV 不重要不紧急</option>'
+        + '</select>'
         + '<div class="edit-form-buttons">'
         + '<button class="btn-edit-save" data-action="save-edit">保存</button>'
         + '<button class="btn-edit-cancel" data-action="cancel-edit">取消</button>'
         + '</div></div></div>'
-        + (hasContent ? '<button class="task-expand" data-action="collapse">▼</button>' : '')
-        + '<button class="task-delete" data-action="delete">×</button>'
+        + (hasContent ? '<button class="task-expand" data-action="collapse" aria-label="展开内容">▼</button>' : '')
+        + '<button class="task-delete" data-action="delete" aria-label="删除任务">×</button>'
         + '</li>';
 }
 
@@ -490,6 +520,14 @@ function renderQuadrant(q) {
         list.innerHTML = '<div class="empty-tip">暂无任务</div>';
     } else {
         list.innerHTML = qTasks.map(function(t, i) { return buildTaskHtml(t, i); }).join('');
+        // 仅对新添加的任务触发入场动画，已有任务不重复动画
+        qTasks.forEach(function(t) {
+            if (newTaskIds.has(t.id)) {
+                var el = list.querySelector('[data-task-id="' + t.id + '"]');
+                if (el) el.classList.add('task-new');
+                newTaskIds.delete(t.id);
+            }
+        });
     }
 }
 
@@ -498,11 +536,25 @@ function renderStats() {
     var total = tasks.length;
     var done = tasks.filter(function(t) { return t.done; }).length;
     var undone = total - done;
-    dom.statsBar.innerHTML =
-        '<div class="stat-card"><div class="stat-count">' + total + '</div><div class="stat-label">总任务</div></div>'
-        + '<div class="stat-card"><div class="stat-count">' + undone + '</div><div class="stat-label">待完成</div></div>'
-        + '<div class="stat-card"><div class="stat-count">' + done + '</div><div class="stat-label">已完成</div></div>'
-        + (done > 0 ? '<button class="clear-btn" data-action="clear-done">清除已完成</button>' : '');
+    // 避免每次重建 innerHTML，改为更新已有元素的文本
+    if (!dom.statTotal) {
+        // 首次渲染：创建结构
+        dom.statsBar.innerHTML =
+            '<div class="stat-card"><div class="stat-count" id="statTotal">' + total + '</div><div class="stat-label">总任务</div></div>'
+            + '<div class="stat-card"><div class="stat-count" id="statUndone">' + undone + '</div><div class="stat-label">待完成</div></div>'
+            + '<div class="stat-card"><div class="stat-count" id="statDone">' + done + '</div><div class="stat-label">已完成</div></div>'
+            + '<div id="clearDoneWrap"></div>';
+        dom.statTotal = document.getElementById('statTotal');
+        dom.statUndone = document.getElementById('statUndone');
+        dom.statDone = document.getElementById('statDone');
+        dom.clearDoneWrap = document.getElementById('clearDoneWrap');
+    } else {
+        // 后续渲染：只更新文本和清除按钮
+        dom.statTotal.textContent = total;
+        dom.statUndone.textContent = undone;
+        dom.statDone.textContent = done;
+    }
+    dom.clearDoneWrap.innerHTML = done > 0 ? '<button class="clear-btn" data-action="clear-done">清除已完成</button>' : '';
 }
 
 function renderTrash() {
@@ -525,9 +577,9 @@ function renderTrash() {
                 + '<span class="trash-title-text">' + escapeHtml(t.title) + '</span>'
                 + (hasContent ? '<div class="trash-content" id="trash-content-' + tid + '">' + escapeHtml(t.content) + '</div>' : '')
                 + '<span class="trash-time">' + time + '</span>'
-                + (hasContent ? '<button class="task-expand" data-action="trash-detail">▼</button>' : '')
-                + '<button class="btn-restore" data-action="restore">恢复</button>'
-                + '<button class="btn-trash-delete" data-action="perm-delete">×</button>'
+                + (hasContent ? '<button class="task-expand" data-action="trash-detail" aria-label="展开内容">▼</button>' : '')
+                + '<button class="btn-restore" data-action="restore" aria-label="恢复任务">恢复</button>'
+                + '<button class="btn-trash-delete" data-action="perm-delete" aria-label="彻底删除">×</button>'
                 + '</li>';
         }).join('');
     }
@@ -547,9 +599,7 @@ function formatTime(timestamp) {
 }
 
 function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function escapeAttr(str) {
@@ -584,62 +634,63 @@ function toggleCollapse(id) {
 }
 
 function applyContentWrapping() {
-    requestAnimationFrame(function() {
-        QUADRANT_CONFIG.forEach(function(q) {
-            var list = dom['list-' + q];
-            if (!list) return;
-            var items = list.querySelectorAll('.task-item');
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i];
-                var collapsedDiv = item.querySelector('.task-content-collapsed');
-                var expandBtn = item.querySelector('.task-expand');
-                if (!collapsedDiv || !expandBtn) continue;
+    // 两阶段读写分离：先批量测量（读阶段），再批量修改（写阶段），避免布局抖动
+    var measurements = [];
+    QUADRANT_CONFIG.forEach(function(q) {
+        var list = dom['list-' + q];
+        if (!list) return;
+        var items = list.querySelectorAll('.task-item');
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var collapsedDiv = item.querySelector('.task-content-collapsed');
+            var expandBtn = item.querySelector('.task-expand');
+            if (!collapsedDiv || !expandBtn) continue;
 
-                var titleDiv = item.querySelector('.task-title');
-                var contentText = collapsedDiv.textContent;
+            var titleDiv = item.querySelector('.task-title');
+            var contentText = collapsedDiv.textContent;
 
-                // Temporarily add content inline to measure combined height
-                var tempSpace = document.createTextNode(' ');
-                var tempSpan = document.createElement('span');
-                tempSpan.className = 'task-content-inline';
-                tempSpan.textContent = contentText;
-                titleDiv.appendChild(tempSpace);
-                titleDiv.appendChild(tempSpan);
+            // 读阶段：临时添加内容测量高度
+            var tempSpace = document.createTextNode(' ');
+            var tempSpan = document.createElement('span');
+            tempSpan.className = 'task-content-inline';
+            tempSpan.textContent = contentText;
+            titleDiv.appendChild(tempSpace);
+            titleDiv.appendChild(tempSpan);
 
-                var combinedHeight = titleDiv.offsetHeight;
-
-                // Remove temp elements
-                tempSpan.remove();
-                tempSpace.remove();
-
-                // Get line height in pixels
-                var computedStyle = getComputedStyle(titleDiv);
-                var lineHeightStr = computedStyle.lineHeight;
-                var lineHeight;
-                if (lineHeightStr === 'normal') {
-                    lineHeight = parseFloat(computedStyle.fontSize) * 1.2;
+            var combinedHeight = titleDiv.offsetHeight;
+            var computedStyle = getComputedStyle(titleDiv);
+            var lineHeightStr = computedStyle.lineHeight;
+            var lineHeight;
+            if (lineHeightStr === 'normal') {
+                lineHeight = parseFloat(computedStyle.fontSize) * 1.2;
+            } else {
+                var parsed = parseFloat(lineHeightStr);
+                if (/\d$/.test(lineHeightStr)) {
+                    lineHeight = parsed * parseFloat(computedStyle.fontSize);
                 } else {
-                    var parsed = parseFloat(lineHeightStr);
-                    // Unitless factor: multiply by font-size to get pixels
-                    if (/\d$/.test(lineHeightStr)) {
-                        lineHeight = parsed * parseFloat(computedStyle.fontSize);
-                    } else {
-                        lineHeight = parsed;
-                    }
-                }
-
-                // If title + content fits in one line, show inline; otherwise keep collapsed
-                if (combinedHeight <= lineHeight * 1.1) {
-                    var inlineSpan = document.createElement('span');
-                    inlineSpan.className = 'task-content-inline';
-                    inlineSpan.textContent = contentText;
-                    titleDiv.appendChild(document.createTextNode(' '));
-                    titleDiv.appendChild(inlineSpan);
-                    collapsedDiv.remove();
-                    expandBtn.remove();
+                    lineHeight = parsed;
                 }
             }
-        });
+
+            // 立即移除临时元素（写阶段前的清理）
+            tempSpan.remove();
+            tempSpace.remove();
+
+            measurements.push({ item: item, titleDiv: titleDiv, collapsedDiv: collapsedDiv, expandBtn: expandBtn, contentText: contentText, combinedHeight: combinedHeight, lineHeight: lineHeight });
+        }
+    });
+
+    // 写阶段：批量 DOM 修改，不再触发额外布局读取
+    measurements.forEach(function(m) {
+        if (m.combinedHeight <= m.lineHeight * 1.1) {
+            var inlineSpan = document.createElement('span');
+            inlineSpan.className = 'task-content-inline';
+            inlineSpan.textContent = m.contentText;
+            m.titleDiv.appendChild(document.createTextNode(' '));
+            m.titleDiv.appendChild(inlineSpan);
+            m.collapsedDiv.remove();
+            m.expandBtn.remove();
+        }
     });
 }
 
@@ -688,10 +739,11 @@ function showToast(msg, type) {
     if (toastTimer) clearTimeout(toastTimer);
     el.textContent = msg;
     el.className = 'toast ' + type + ' show';
+    var duration = type === 'error' ? 4000 : 2000;
     toastTimer = setTimeout(function() {
         el.classList.remove('show');
         toastTimer = null;
-    }, 2000);
+    }, duration);
 }
 
 // ========== 回收站面板 ==========
@@ -699,8 +751,17 @@ function toggleTrash() {
     trashExpanded = !trashExpanded;
     var overlay = dom.trashOverlay;
     var panel = dom.trashPanel;
-    if (trashExpanded) { overlay.classList.add('show'); panel.classList.add('show'); }
-    else { overlay.classList.remove('show'); panel.classList.remove('show'); }
+    if (trashExpanded) {
+        overlay.classList.add('show');
+        panel.classList.add('show');
+        // 聚焦到面板内首个交互元素
+        var firstBtn = panel.querySelector('button');
+        if (firstBtn) firstBtn.focus();
+    } else {
+        overlay.classList.remove('show');
+        panel.classList.remove('show');
+        dom.trashBtn.focus();
+    }
 }
 
 function closeTrash() {
@@ -718,13 +779,16 @@ function toggleSettings() {
         overlay.classList.add('show');
         panel.classList.add('show');
         var cfg = loadConfig();
-        dom.configToken.value = cfg.token || '';
+        dom.configToken.value = cfg.token ? '••••••••' : '';
+        dom.configToken.dataset.masked = cfg.token ? 'true' : '';
         dom.configRepo.value = cfg.repo || '';
         dom.configBranch.value = cfg.branch || 'main';
         updateConnStatus();
+        dom.configToken.focus();
     } else {
         overlay.classList.remove('show');
         panel.classList.remove('show');
+        dom.settingsBtn.focus();
     }
     dom.settingsStatus.textContent = '';
     dom.settingsStatus.className = 'status-msg';
@@ -776,14 +840,21 @@ async function connectGitHub() {
 
     try { await apiGet(apiRepoUrl()); }
     catch (e) {
-        showStatus('Token 或仓库无效: ' + e.message, true);
+        var msg = e.message;
+        if (msg.indexOf('401') !== -1) msg = 'Token 无效或已过期';
+        else if (msg.indexOf('403') !== -1) msg = '权限不足，请检查 Token 授权范围';
+        else if (msg.indexOf('404') !== -1) msg = '仓库不存在或 Token 无权限访问';
+        showStatus(msg, true);
         setConnFailed(btn);
         return;
     }
 
     try { await apiGet(apiRepoUrl() + '/branches/' + encodeURIComponent(branch)); }
     catch (e) {
-        showStatus('分支不存在: ' + e.message, true);
+        var bmsg = e.message;
+        if (bmsg.indexOf('404') !== -1) bmsg = '分支 ' + branch + ' 不存在';
+        else if (bmsg.indexOf('401') !== -1) bmsg = 'Token 无权限查看分支';
+        showStatus(bmsg, true);
         setConnFailed(btn);
         return;
     }
@@ -869,6 +940,14 @@ function bindGlobalEvents() {
     dom.trashBtn.addEventListener('click', toggleTrash);
     dom.trashOverlay.addEventListener('click', closeTrash);
     dom.settingsBtn.addEventListener('click', toggleSettings);
+    // Token 输入框：点击时清除掩码让用户输入新 Token
+    dom.configToken.addEventListener('focus', function() {
+        if (dom.configToken.dataset.masked === 'true') {
+            dom.configToken.value = '';
+            dom.configToken.dataset.masked = '';
+        }
+    });
+
     dom.settingsOverlay.addEventListener('click', closeSettings);
     dom.btnConnect.addEventListener('click', connectGitHub);
     dom.btnDisconnect.addEventListener('click', disconnectGitHub);
@@ -899,17 +978,24 @@ function bindGlobalEvents() {
         if (display) { startEdit(display.id.replace('task-display-', '')); }
     });
 
-    // 矩阵容器 — keydown 委托（编辑表单 + 内联输入）
+    // 矩阵容器 — keydown 委托（编辑表单 + 内联输入 + 任务键盘交互）
     dom.matrixContainer.addEventListener('keydown', function(e) {
         var editEl = e.target.closest('.edit-title, .edit-content');
         if (editEl) {
             var editForm = editEl.closest('[id^="task-edit-"]');
             var id = editForm ? editForm.id.replace('task-edit-', '') : '';
-            if (e.key === 'Enter' && e.metaKey) { saveEdit(id); return; }
+            if ((e.key === 'Enter' && (e.metaKey || e.ctrlKey)) || (e.key === 'Enter' && e.target.classList.contains('edit-title'))) { saveEdit(id); return; }
             if (e.key === 'Escape') { cancelEdit(id); return; }
         }
+        // 键盘触发编辑：聚焦到 task-check 时按 Enter 开启编辑模式
+        var checkEl = e.target.closest('.task-check');
+        if (checkEl && e.key === 'Enter') {
+            var item = checkEl.closest('.task-item');
+            if (item) startEdit(item.dataset.taskId);
+            return;
+        }
         var inlineEl = e.target.closest('.inline-title, .inline-content');
-        if (inlineEl && e.key === 'Enter' && e.metaKey) {
+        if (inlineEl && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             var wrap = inlineEl.closest('.inline-input-wrap');
             if (wrap) addInlineTask(wrap.dataset.quadrant);
         }
@@ -937,7 +1023,7 @@ function bindGlobalEvents() {
         if (!item || item.dataset.taskId === draggedTaskId) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        item.classList.add('drag-over-item');
+        if (!item.classList.contains('drag-over-item')) item.classList.add('drag-over-item');
     });
 
     dom.matrixContainer.addEventListener('dragleave', function(e) {

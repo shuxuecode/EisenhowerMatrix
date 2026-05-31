@@ -8,13 +8,14 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <a href="#matrixContainer" class="skip-link">跳到主内容</a>
     <div class="matrix-container" id="matrixContainer"></div>
 
     <div class="stats-bar" id="statsBar"></div>
 
-    <button class="trash-btn" id="trashBtn">🗑️<span class="trash-count" id="trashCount"></span></button>
+    <button class="trash-btn" id="trashBtn" aria-label="回收站">🗑️<span class="trash-count" id="trashCount"></span></button>
     <div class="trash-overlay" id="trashOverlay"></div>
-    <div class="trash-panel" id="trashPanel">
+    <div class="trash-panel" id="trashPanel" role="dialog" aria-modal="true" aria-label="回收站">
         <div class="trash-header">
             <div class="trash-title">🗑️ 回收站</div>
             <button class="clear-btn" id="btnClearTrash" style="padding:6px 14px;font-size:0.8rem">清空回收站</button>
@@ -24,11 +25,11 @@
 
     <div class="loading-bar" id="loadingBar"></div>
 
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <button class="settings-btn" id="settingsBtn" title="GitHub 设置">⚙️</button>
+    <button class="settings-btn" id="settingsBtn" aria-label="GitHub 设置">⚙️</button>
     <div class="settings-overlay" id="settingsOverlay"></div>
-    <div class="settings-panel" id="settingsPanel">
+    <div class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-label="GitHub 连接设置">
         <h3>GitHub 连接设置 <span id="connStatus" class="conn-status"></span></h3>
         <label>Personal Access Token <span style="font-weight:normal;font-size:0.75rem;color:var(--white-50)">— 建议使用 Fine-grained token</span></label>
         <input type="password" id="configToken" placeholder="github_pat_xxxxxxxxxxxxxxxxxxxx" />
@@ -41,7 +42,7 @@
             <button class="btn-connect" id="btnConnect">连接</button>
             <button class="btn-disconnect" id="btnDisconnect">断开</button>
         </div>
-        <div class="status-msg" id="settingsStatus"></div>
+        <div class="status-msg" id="settingsStatus" role="alert" aria-live="assertive"></div>
     </div>
 
     <script src="js/app.js"></script>
