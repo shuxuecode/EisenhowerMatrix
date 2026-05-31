@@ -306,10 +306,14 @@ async function ensureFilesExist() {
     var defaultData = { q1: [], q2: [], q3: [], q4: [], _trash: [], _ts: 0 };
     try {
         var url = apiContentsUrl(DATA_FILE_PATH) + '?ref=' + encodeURIComponent(getBranch());
-        await apiGet(url);
+        var info = await apiGet(url);
+        // 保存 SHA，避免后续 saveFileWithRetry 再次 GET 获取
+        fileShas[DATA_FILE_PATH] = info.sha;
     } catch (e) {
         var body = { message: 'Create ' + DATA_FILE_PATH, content: base64Encode(JSON.stringify(defaultData, null, 2)), branch: getBranch() };
-        await apiPut(apiContentsUrl(DATA_FILE_PATH), body);
+        var result = await apiPut(apiContentsUrl(DATA_FILE_PATH), body);
+        // 保存新建文件的 SHA，避免后续冗余 API 请求
+        fileShas[DATA_FILE_PATH] = result.content.sha;
     }
 }
 
@@ -319,7 +323,12 @@ function addInlineTask(quadrant) {
     var titleInput = wrap.querySelector('.inline-title');
     var contentInput = wrap.querySelector('.inline-content');
     var title = titleInput.value.trim();
-    if (!title) return;
+    if (!title) {
+        titleInput.classList.add('input-error');
+        titleInput.focus();
+        setTimeout(function() { titleInput.classList.remove('input-error'); }, 1500);
+        return;
+    }
     var content = contentInput.value.trim();
     titleInput.value = '';
     contentInput.value = '';
@@ -377,12 +386,16 @@ function restoreTask(id) {
 }
 
 function permanentDelete(id) {
+    if (!confirm('确定要彻底删除此任务吗？此操作不可恢复。')) return;
     tasksCache = tasksCache.filter(function(t) { return String(t.id) !== id; });
     renderTrash();
     debouncedSaveAllData();
 }
 
 async function clearTrash() {
+    var deletedCount = tasksCache.filter(function(t) { return t.deleted; }).length;
+    if (deletedCount === 0) { closeTrash(); return; }
+    if (!confirm('确定要清空回收站（共 ' + deletedCount + ' 项）吗？此操作不可恢复。')) return;
     // 取消待执行的 debounce 定时器，防止残留的旧数据推回 GitHub 覆盖清空操作
     if (saveDebounceTimer) { clearTimeout(saveDebounceTimer); saveDebounceTimer = null; }
     tasksCache = tasksCache.filter(function(t) { return !t.deleted; });
@@ -915,6 +928,7 @@ function bindGlobalEvents() {
     dom.matrixContainer.addEventListener('dragend', function(e) {
         document.querySelectorAll('.quadrant').forEach(function(q) { q.classList.remove('drag-over'); });
         document.querySelectorAll('.task-item').forEach(function(t) { t.classList.remove('drag-over-item'); });
+        draggedTaskId = null;
     });
 
     dom.matrixContainer.addEventListener('dragover', function(e) {
@@ -982,6 +996,16 @@ function bindGlobalEvents() {
     });
 }
 
+// ========== 页面关闭保护 ==========
+// 如果有待执行的 GitHub 同步定时器，提醒用户等待或手动保存
+window.addEventListener('beforeunload', function(e) {
+    if (saveDebounceTimer) {
+        e.preventDefault();
+        e.returnValue = '数据正在同步到 GitHub，请稍候再关闭页面。';
+        return e.returnValue;
+    }
+});
+
 // ========== 应用初始化 ==========
 (async function init() {
     initDomCache();
@@ -998,7 +1022,17 @@ function bindGlobalEvents() {
     // 如果已配置 GitHub，后台拉取远端数据（内部已包含本地加载逻辑）
     if (apiToken) {
         showLoading();
-        try { await loadAllTasks(); } catch (e) { console.error('初始化加载数据失败:', e.message); }
+        var loadSuccess = true;
+        try { await loadAllTasks(); } catch (e) {
+            loadSuccess = false;
+            console.error('初始化加载数据失败:', e.message);
+        }
+        // 如果远端加载失败（Token 过期、仓库删除等），移除"已连接"状态避免误导
+        if (!loadSuccess) {
+            dom.settingsBtn.classList.remove('connected');
+            connectionAttempted = true;
+            updateConnStatus();
+        }
         hideLoading();
     } else {
         var local = loadLocal();

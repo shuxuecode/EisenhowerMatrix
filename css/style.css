@@ -150,6 +150,16 @@ body {
 
 .inline-input-wrap input::placeholder { color: var(--white-50); }
 .inline-input-wrap input:focus { border-color: var(--yellow); }
+.inline-input-wrap input.input-error {
+    border-color: #e74c3c;
+    animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
 
 .inline-input-wrap button {
     padding: 8px 14px;
