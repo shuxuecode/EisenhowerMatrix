@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// iOS 底部统计栏 — 紧凑布局适配手机屏幕
+/// iOS 底部统计栏 — 紧凑布局适配手机屏幕，背景延伸到 Home Indicator 区域
 struct StatsBarView: View {
     let total: Int
     let undone: Int
@@ -70,12 +70,23 @@ struct StatsBarView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 16)
         .background(
-            Rectangle()
-                .fill(Color(red: 0.08, green: 0.10, blue: 0.20).opacity(0.95))
-                .overlay(
+            // 背景延伸到 Home Indicator 区域，内容保持在安全区域内
+            GeometryReader { geo in
+                let bottomInset = geo.safeAreaInsets.bottom
+                VStack(spacing: 0) {
                     Rectangle()
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                )
+                        .fill(Color(red: 0.08, green: 0.10, blue: 0.20).opacity(0.95))
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                    // 填充 Home Indicator 区域
+                    Rectangle()
+                        .fill(Color(red: 0.08, green: 0.10, blue: 0.20).opacity(0.95))
+                        .frame(height: bottomInset)
+                }
+                .ignoresSafeArea(.all, edges: .bottom)
+            }
         )
     }
 }

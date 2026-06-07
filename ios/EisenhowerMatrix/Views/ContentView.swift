@@ -6,12 +6,12 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 背景
+            // 背景 — 延伸到刘海/状态栏区域，仅背景填充
             backgroundGradient
 
-            // 主内容
+            // 主内容 — 尊重安全区域，不被刘海遮挡
             VStack(spacing: 0) {
-                // 加载条
+                // 加载条（紧贴安全区域顶部）
                 if viewModel.isLoading && viewModel.loadingProgress > 0 {
                     loadingBar
                 }
@@ -32,7 +32,6 @@ struct ContentView: View {
                 )
             }
         }
-        .ignoresSafeArea(.all, edges: .top)
         .sheet(isPresented: $viewModel.showTrash) {
             TrashSheetView(
                 deletedTasks: viewModel.deletedTasks,
@@ -83,7 +82,7 @@ struct ContentView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-        .ignoresSafeArea()
+        .ignoresSafeArea(.all)  // 背景延伸到刘海/底部指示器区域，前景内容不受影响
     }
 
     // MARK: - 象限滚动视图
@@ -137,18 +136,21 @@ struct ContentView: View {
     // MARK: - Toast
 
     private func toastView(message: String) -> some View {
-        Text(message)
-            .font(.subheadline)
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(viewModel.toastType == .success
-                        ? Color(red: 0.42, green: 0.80, blue: 0.47).opacity(0.85)
-                        : Color(red: 0.91, green: 0.27, blue: 0.38).opacity(0.85))
-            )
-            .padding(.top, 50)
-            .transition(.move(edge: .top).combined(with: .opacity))
+        GeometryReader { geo in
+            let topInset = geo.safeAreaInsets.top
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(viewModel.toastType == .success
+                            ? Color(red: 0.42, green: 0.80, blue: 0.47).opacity(0.85)
+                            : Color(red: 0.91, green: 0.27, blue: 0.38).opacity(0.85))
+                )
+                .padding(.top, topInset + 4)  // 紧贴安全区域顶部下方
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 }
