@@ -56,6 +56,11 @@ body {
     background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-mid) 50%, var(--bg-blue) 100%);
     font-family: sans-serif;
     padding: 20px 10px;
+    /* PWA standalone 模式下适配 iPhone 安全区域（刘海 + Home Indicator） */
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -502,8 +507,8 @@ body {
     z-index: 100;
 }
 
-.trash-btn { bottom: 20px; }
-.settings-btn { bottom: 80px; }
+.trash-btn { bottom: max(20px, env(safe-area-inset-bottom)); }
+.settings-btn { bottom: max(80px, calc(env(safe-area-inset-bottom) + 60px)); }
 
 .trash-btn:hover, .settings-btn:hover {
     background: var(--white-25);
