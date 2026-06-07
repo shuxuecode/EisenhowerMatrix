@@ -15,6 +15,9 @@ EisenhowerMatrix/
 ├── mac/                    # macOS 原生客户端 (SwiftUI)
 │   ├── EisenhowerMatrix/   # App 源码
 │   └── EisenhowerMatrix.xcodeproj/
+├── ios/                    # iPhone 原生客户端 (SwiftUI)
+│   ├── EisenhowerMatrix/   # App 源码
+│   └── EisenhowerMatrix.xcodeproj/
 ├── upload.sh               # Git 推送辅助脚本
 ├── LICENSE                 # MIT 许可证
 └── README.md               # 本文件
@@ -41,15 +44,22 @@ EisenhowerMatrix/
 2. 选择目标设备（My Mac）
 3. 点击 Run 或 Product → Build
 
+### iPhone 原生版
+
+1. 用 Xcode 打开 `ios/EisenhowerMatrix.xcodeproj`
+2. 选择 iPhone 模拟器（如 iPhone 15）
+3. 点击 Run 或 Product → Build
+
 ## 功能特性
 
 - ✅ 四象限任务分类（紧急&重要 / 重要不紧急 / 紧急不重要 / 不紧急不重要）
-- ✅ 拖拽排序
+- ✅ 拖拽排序（macOS）/ 展开折叠交互（iOS）
 - ✅ 本地持久化存储
-- ✅ GitHub 数据同步（Web 版）
+- ✅ GitHub 数据同步
 - ✅ 回收站功能
 - ✅ 统计卡片
 - ✅ macOS 原生菜单栏体验
+- ✅ iOS 垂直滚动卡片布局
 
 ## License
 
