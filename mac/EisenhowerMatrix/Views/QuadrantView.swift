@@ -10,7 +10,7 @@ struct QuadrantView: View {
     let onAdd: (String, String) -> Void
     let onEdit: (String, String, String, String) -> Void
     let onDragStart: (String) -> Void
-    let onDrop: (String, Bool) -> Void
+    let onDrop: (String, String, Bool) -> Void
     let onDropToQuadrant: (String) -> Void
 
     @State private var showInput: Bool = false
@@ -239,12 +239,44 @@ struct QuadrantView: View {
 
     // MARK: - 拖放处理
 
+    private func draggedTaskId(from item: Any?) -> String? {
+        if let id = item as? String {
+            return id
+        }
+        if let id = item as? NSString {
+            return id as String
+        }
+        if let data = item as? Data {
+            return String(data: data, encoding: .utf8)
+        }
+        return nil
+    }
+
+    private func loadDraggedTaskId(from provider: NSItemProvider, completion: @escaping (String?) -> Void) {
+        if provider.canLoadObject(ofClass: NSString.self) {
+            provider.loadObject(ofClass: NSString.self) { object, _ in
+                if let id = object as? String {
+                    completion(id)
+                } else if let id = object as? NSString {
+                    completion(id as String)
+                } else {
+                    completion(nil)
+                }
+            }
+            return
+        }
+
+        provider.loadItem(forTypeIdentifier: "public.text", options: nil) { data, _ in
+            completion(draggedTaskId(from: data))
+        }
+    }
+
     private func handleDrop(providers: [NSItemProvider], location: CGPoint) -> Bool {
         // 如果拖到任务项上，由任务项处理
         // 否则改变象限
         if let provider = providers.first {
-            provider.loadItem(forTypeIdentifier: "public.text", options: nil) { data, _ in
-                if let id = data as? String {
+            loadDraggedTaskId(from: provider) { id in
+                if let id {
                     DispatchQueue.main.async {
                         onDropToQuadrant(id)
                     }
@@ -256,11 +288,11 @@ struct QuadrantView: View {
 
     private func handleItemDrop(providers: [NSItemProvider], location: CGPoint, taskId: String) -> Bool {
         guard let provider = providers.first else { return false }
-        provider.loadItem(forTypeIdentifier: "public.text", options: nil) { data, _ in
-            if let id = data as? String, id != taskId {
+        loadDraggedTaskId(from: provider) { id in
+            if let id, id != taskId {
                 DispatchQueue.main.async {
                     let before = location.y < 20  // 在目标上半部分
-                    onDrop(taskId, before)
+                    onDrop(id, taskId, before)
                 }
             }
         }

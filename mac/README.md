@@ -11,7 +11,7 @@ TaskViewModel       ── 连接流程编排（验证 → 创建文件 → 拉�
     │
 GitHubService       ── GitHub API 请求层（GET/PUT、base64 编解码、SHA 冲突重试）
     │
-ConfigStorage       ── 配置持久化（Keychain 存 Token、UserDefaults 存 repo/branch）
+ConfigStorage       ── 配置持久化（UserDefaults 存 Token / repo / branch）
 ```
 
 ---
@@ -24,7 +24,7 @@ ConfigStorage       ── 配置持久化（Keychain 存 Token、UserDefaults �
 
 ```
 GET https://api.github.com/repos/{owner}/{name}
-Authorization: token {PAT}
+Authorization: Bearer {PAT}
 ```
 
 失败时根据 HTTP 状态码给出中文提示：
@@ -38,7 +38,7 @@ Authorization: token {PAT}
 
 ```
 GET https://api.github.com/repos/{owner}/{name}/branches/{branch}
-Authorization: token {PAT}
+Authorization: Bearer {PAT}
 ```
 
 失败时：
@@ -78,22 +78,18 @@ GET  https://api.github.com/repos/{owner}/{name}/contents/eisenhower/data.json?r
 使用 **Personal Access Token (PAT)**，通过 HTTP Header 传递：
 
 ```
-Authorization: token {PAT}
+Authorization: Bearer {PAT}
 Accept: application/vnd.github.v3+json
 Content-Type: application/json
 ```
 
 建议使用 **Fine-grained token**，仅需授权单个仓库的 **Contents 读写权限**。
 
-### Token 安全存储
+### Token 配置存储
 
-- **Token** → macOS Keychain（`SecItemAdd` / `SecItemCopyMatching`）
-  - Key 名：`eisenhower_github_token`
-  - Service：`com.eisenhower.matrix`
-  - Accessible：`kSecAttrAccessibleAfterFirstUnlock`
-- **repo / branch** → UserDefaults（`eisenhower_github_config`）
-  - Token 字段在 UserDefaults 中**留空**，不存储敏感信息
-- Keychain 写入失败时自动回退到 UserDefaults（保证功能可用）
+- **Token / repo / branch** → UserDefaults（`eisenhower_github_config`）
+- 配置保存为完整 `GitHubConfig`，用于 App 下次启动时自动恢复 GitHub 连接
+- 断开 GitHub 时会清除本地保存的 GitHub 配置
 
 ---
 

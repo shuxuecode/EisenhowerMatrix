@@ -159,8 +159,8 @@ struct ContentView: View {
                 viewModel.saveEdit(id: id, title: title, content: content, quadrant: quadrant)
             },
             onDragStart: { viewModel.draggedTaskId = $0 },
-            onDrop: { targetId, before in
-                viewModel.reorderTasks(targetTaskId: targetId, before: before)
+            onDrop: { draggedId, targetId, before in
+                viewModel.reorderTasks(draggedId: draggedId, targetTaskId: targetId, before: before)
             },
             onDropToQuadrant: { taskId in
                 viewModel.moveToQuadrant(taskId: taskId, quadrant: config.id)

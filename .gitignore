@@ -1,4 +1,49 @@
+# AI 工具配置
 .claude/
-*.log
-.DS_Store
+
+# 本地脚本与个人配置
 upload.sh
+.gitmessage
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Xcode
+xcuserdata/
+**/xcuserdata/
+*.xcuserstate
+UserInterfaceState.xcuserstate
+build/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# 证书与描述文件
+*.p12
+*.cer
+*.mobileprovision
+
+# 环境变量
+.env
+.env.*
+*.xcconfig.local
+
+# 编辑器临时文件
+*.swp
+*.swo
+*~
+
+# 日志
+*.log

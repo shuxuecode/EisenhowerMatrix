@@ -4,6 +4,7 @@ import Foundation
 class LocalStorageService {
     static let shared = LocalStorageService()
     private let dataKey = "eisenhower_data"
+    private let corruptBackupKey = "eisenhower_data_corrupt_backup"
 
     private init() {}
 
@@ -12,8 +13,8 @@ class LocalStorageService {
         do {
             return try JSONDecoder().decode(PersistedData.self, from: data)
         } catch {
-            print("本地数据解析失败: \(error)")
-            UserDefaults.standard.removeObject(forKey: dataKey)
+            UserDefaults.standard.set(data, forKey: corruptBackupKey)
+            print("本地数据解析失败，原始数据已备份: \(error)")
             return nil
         }
     }

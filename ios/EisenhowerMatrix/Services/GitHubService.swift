@@ -50,13 +50,47 @@ class GitHubService {
         }
     }
 
-    private func baseURL() -> String {
-        guard let parts = currentConfig()?.repoParts else { return "" }
-        return "https://api.github.com/repos/\(parts.owner)/\(parts.name)"
+    private func encodedPathSegment(_ value: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/?#[]@!$&'()*+,;=")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    private func contentsURL() -> String {
-        return baseURL() + "/contents/" + dataFilePath
+    private func encodedDataFilePath() -> String {
+        dataFilePath.split(separator: "/")
+            .map { encodedPathSegment(String($0)) }
+            .joined(separator: "/")
+    }
+
+    private func baseURL() throws -> URL {
+        guard let parts = currentConfig()?.repoParts else { throw GitHubError.notConfigured }
+        let owner = encodedPathSegment(parts.owner)
+        let name = encodedPathSegment(parts.name)
+        guard let url = URL(string: "https://api.github.com/repos/\(owner)/\(name)") else {
+            throw GitHubError.invalidURL
+        }
+        return url
+    }
+
+    private func contentsURL(ref branch: String? = nil) throws -> URL {
+        guard let url = URL(string: try baseURL().absoluteString + "/contents/\(encodedDataFilePath())") else {
+            throw GitHubError.invalidURL
+        }
+        guard let branch else { return url }
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw GitHubError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "ref", value: branch)]
+        guard let result = components.url else { throw GitHubError.invalidURL }
+        return result
+    }
+
+    private func branchURL(_ branch: String) throws -> URL {
+        let branchPath = encodedPathSegment(branch)
+        guard let url = URL(string: try baseURL().absoluteString + "/branches/\(branchPath)") else {
+            throw GitHubError.invalidURL
+        }
+        return url
     }
 
     private func headers() -> [String: String] {
@@ -100,8 +134,8 @@ class GitHubService {
         }
         guard (200...299).contains(httpResponse.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
-            let msg = parseError(status: httpResponse.statusCode, body: body)
-            throw GitHubError.requestFailed(msg)
+            let msg = parseErrorMessage(body: body)
+            throw GitHubError.httpError(status: httpResponse.statusCode, message: msg)
         }
         return (data, httpResponse.statusCode)
     }
@@ -119,37 +153,30 @@ class GitHubService {
             throw GitHubError.requestFailed("非 HTTP 响应")
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let status = httpResponse.statusCode
             let bodyStr = String(data: data, encoding: .utf8) ?? ""
-            let msg = parseError(status: status, body: bodyStr)
-            throw GitHubError.requestFailed(msg)
+            let msg = parseErrorMessage(body: bodyStr)
+            throw GitHubError.httpError(status: httpResponse.statusCode, message: msg)
         }
         return (data, httpResponse.statusCode)
     }
 
-    /// 解析错误，格式为 "HTTP {status}: {message}" 或 "HTTP {status}"
-    private func parseError(status: Int, body: String) -> String {
+    private func parseErrorMessage(body: String) -> String {
         if let data = body.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let message = json["message"] as? String {
-            return "HTTP \(status): \(message)"
+            return message
         }
-        return "HTTP \(status)"
+        return "请求失败"
     }
 
     // MARK: - Data Operations
 
     /// 拉取远端数据文件
     func fetchData() async throws -> PersistedData {
-        guard currentConfig() != nil else {
+        guard let config = currentConfig() else {
             throw GitHubError.notConfigured
         }
-        let config = currentConfig()!
-        let branch = config.branch
-        let urlStr = contentsURL() + "?ref=\(branch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? branch)"
-        guard let url = URL(string: urlStr) else {
-            throw GitHubError.invalidURL
-        }
+        let url = try contentsURL(ref: config.branch)
 
         let (data, _) = try await apiGet(url)
 
@@ -174,18 +201,11 @@ class GitHubService {
             throw GitHubError.decodingFailed("base64 解码失败")
         }
 
-        // 使用 JSONSerialization 先验证
-        guard let decodedJson = try? JSONSerialization.jsonObject(with: decodedData, options: []) else {
+        guard (try? JSONSerialization.jsonObject(with: decodedData, options: [])) != nil else {
             if let rawStr = String(data: decodedData, encoding: .utf8) {
                 throw GitHubError.decodingFailed("JSON 格式无效: \(rawStr.prefix(200))")
             }
             throw GitHubError.decodingFailed("JSON 格式无效")
-        }
-
-        // 调试：打印实际的 JSON 键
-        if let dict = decodedJson as? [String: Any] {
-            print("GitHub 数据键: \(dict.keys.sorted())")
-            print("_ts 类型: \(type(of: dict["_ts"]))，值: \(dict["_ts"] ?? "nil")")
         }
 
         // 使用自定义解码器处理 Web 版数据格式
@@ -209,20 +229,14 @@ class GitHubService {
 
     /// 验证仓库访问权限
     func verifyRepo() async throws -> Int {
-        guard let url = URL(string: baseURL()) else {
-            throw GitHubError.invalidURL
-        }
-        let (_, statusCode) = try await apiGet(url)
+        let (_, statusCode) = try await apiGet(try baseURL())
         return statusCode
     }
 
     /// 验证分支存在
     func verifyBranch() async throws -> Int {
-        guard let config = currentConfig(),
-              let url = URL(string: baseURL() + "/branches/\(config.branch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? config.branch)") else {
-            throw GitHubError.invalidURL
-        }
-        let (_, statusCode) = try await apiGet(url)
+        guard let config = currentConfig() else { throw GitHubError.notConfigured }
+        let (_, statusCode) = try await apiGet(try branchURL(config.branch))
         return statusCode
     }
 
@@ -230,10 +244,7 @@ class GitHubService {
     func ensureDataFile() async throws {
         let config = currentConfig()
         let branch = config?.branch ?? "main"
-        let urlStr = contentsURL() + "?ref=\(branch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? branch)"
-        guard let url = URL(string: urlStr) else {
-            throw GitHubError.invalidURL
-        }
+        let url = try contentsURL(ref: branch)
 
         do {
             let (data, _) = try await apiGet(url)
@@ -242,7 +253,11 @@ class GitHubService {
                 setSha(sha)
             }
         } catch {
-            // 文件不存在，创建之
+            guard let gitHubError = error as? GitHubError,
+                  case .httpError(404, _) = gitHubError else {
+                throw error
+            }
+
             let defaultData = PersistedData()
             let encoded = try JSONEncoder().encode(defaultData)
             guard let content = String(data: encoded, encoding: .utf8) else {
@@ -253,7 +268,7 @@ class GitHubService {
                 "content": base64Encode(content),
                 "branch": branch
             ]
-            guard let putURL = URL(string: contentsURL()) else { return }
+            let putURL = try contentsURL()
             let (result, _) = try await apiPut(putURL, body: body)
             let json = try JSONSerialization.jsonObject(with: result) as? [String: Any]
             if let contentObj = json?["content"] as? [String: Any],
@@ -284,23 +299,16 @@ class GitHubService {
         if let sha = getSha() {
             body["sha"] = sha
         } else {
-            // 尝试获取最新 SHA
-            let branch = config.branch
-            let urlStr = contentsURL() + "?ref=\(branch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? branch)"
-            if let url = URL(string: urlStr) {
-                do {
-                    let (data, _) = try await apiGet(url)
-                    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                    if let sha = json?["sha"] as? String {
-                        body["sha"] = sha
-                    }
-                } catch {}
-            }
+            do {
+                let (data, _) = try await apiGet(try contentsURL(ref: config.branch))
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                if let sha = json?["sha"] as? String {
+                    body["sha"] = sha
+                }
+            } catch {}
         }
 
-        guard let url = URL(string: contentsURL()) else {
-            throw GitHubError.invalidURL
-        }
+        let url = try contentsURL()
 
         // 重试一次（冲突时）
         for attempt in 0..<2 {
@@ -313,18 +321,15 @@ class GitHubService {
                 }
                 return
             } catch {
-                if attempt == 0, case .requestFailed(let msg) = error as? GitHubError,
-                   msg.contains("is at") && msg.contains("but expected") {
-                    // 冲突重试：重新获取 SHA
-                    let branch = config.branch
-                    let retryUrlStr = contentsURL() + "?ref=\(branch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? branch)"
-                    if let retryUrl = URL(string: retryUrlStr) {
-                        let (retryData, _) = try await apiGet(retryUrl)
-                        let retryJson = try JSONSerialization.jsonObject(with: retryData) as? [String: Any]
-                        if let sha = retryJson?["sha"] as? String {
-                            body["sha"] = sha
-                        }
+                if attempt == 0,
+                   let gitHubError = error as? GitHubError,
+                   case .httpError(409, _) = gitHubError {
+                    let remote = try await fetchData()
+                    guard persistedData._ts > remote._ts,
+                          let sha = getSha() else {
+                        throw GitHubError.remoteDataIsNewer
                     }
+                    body["sha"] = sha
                     continue
                 }
                 throw error
@@ -338,6 +343,8 @@ class GitHubService {
 enum GitHubError: Error, LocalizedError {
     case notConfigured
     case invalidURL
+    case httpError(status: Int, message: String)
+    case remoteDataIsNewer
     case requestFailed(String)
     case decodingFailed(String)
 
@@ -345,6 +352,8 @@ enum GitHubError: Error, LocalizedError {
         switch self {
         case .notConfigured: return "GitHub 未配置"
         case .invalidURL: return "无效的 URL"
+        case .httpError(let status, let message): return "HTTP \(status): \(message)"
+        case .remoteDataIsNewer: return "远端数据较新，请先同步后再保存"
         case .requestFailed(let msg): return msg
         case .decodingFailed(let msg): return msg
         }

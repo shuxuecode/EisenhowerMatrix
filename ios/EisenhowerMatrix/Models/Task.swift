@@ -291,13 +291,17 @@ struct GitHubConfig: Codable {
     }
 
     var isValid: Bool {
-        !token.isEmpty && !repo.isEmpty && repo.contains("/")
+        !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && repoParts != nil
     }
 
     var repoParts: (owner: String, name: String)? {
         let parts = repo.split(separator: "/")
         guard parts.count == 2 else { return nil }
-        return (String(parts[0]).trimmingCharacters(in: .whitespaces),
-                String(parts[1]).trimmingCharacters(in: .whitespaces))
+        let owner = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !owner.isEmpty, !name.isEmpty else { return nil }
+        return (owner, name)
     }
 }

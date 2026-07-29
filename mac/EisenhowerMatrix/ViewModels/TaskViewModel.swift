@@ -33,30 +33,11 @@ class TaskViewModel: ObservableObject {
     private let gitHub = GitHubService.shared
     private let configStorage = ConfigStorage.shared
 
-    // MARK: - App Lifecycle
-
-    /// 监听 App 退出事件，未连接时清除本地数据
-    private var terminateObserver: NSObjectProtocol?
-
-    private func setupTerminateObserver() {
-        // 先移除旧观察者，避免多次注册
-        if let old = terminateObserver {
-            NotificationCenter.default.removeObserver(old)
-        }
-        terminateObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let self = self else { return }
-            if !self.isGitHubConnected {
-                self.localStorage.remove()
-            }
-        }
-    }
-
     // MARK: - Debounce
 
     private var saveWorkItem: DispatchWorkItem?
+    private var isSyncingToGitHub = false
+    private var needsGitHubSyncAfterCurrent = false
 
     // MARK: - Computed
 
@@ -85,8 +66,6 @@ class TaskViewModel: ObservableObject {
     // MARK: - Initialization
 
     func initialize() async {
-        setupTerminateObserver()
-
         let config = configStorage.load()
         let wasConfigured = config.isValid
 
@@ -110,6 +89,8 @@ class TaskViewModel: ObservableObject {
                 if remoteTs > localTs {
                     tasks = remote.allTasks()
                     localStorage.save(remote)
+                } else if localTs > remoteTs {
+                    await syncToGitHub()
                 }
                 isGitHubConnected = true
             } catch {
@@ -120,10 +101,8 @@ class TaskViewModel: ObservableObject {
             isLoading = false
         }
 
-        // 如果从未配置过 GitHub，清空本地数据并弹出设置面板引导用户连接
+        // 如果从未配置过 GitHub，弹出设置面板引导用户连接
         if !wasConfigured {
-            tasks = []
-            localStorage.remove()
             showSettings = true
         }
     }
@@ -217,64 +196,67 @@ class TaskViewModel: ObservableObject {
     // MARK: - Drag & Drop
 
     /// 重新排序任务
-    func reorderTasks(targetTaskId: String, before: Bool) {
-        guard let draggedId = draggedTaskId,
-              let draggedIndex = tasks.firstIndex(where: { $0.id == draggedId }),
-              let targetIndex = tasks.firstIndex(where: { $0.id == targetTaskId }) else { return }
+    func reorderTasks(draggedId: String, targetTaskId: String, before: Bool) {
+        guard draggedId != targetTaskId,
+              let draggedIndex = tasks.firstIndex(where: { $0.id == draggedId && !$0.deleted }),
+              let targetIndex = tasks.firstIndex(where: { $0.id == targetTaskId && !$0.deleted }) else { return }
 
         let sourceQuadrant = tasks[draggedIndex].quadrant
         let targetQuadrant = tasks[targetIndex].quadrant
+        var draggedTask = tasks[draggedIndex]
+        draggedTask.quadrant = targetQuadrant
 
-        tasks[draggedIndex].quadrant = targetQuadrant
-
-        // 获取目标象限任务并重新排序
-        var qTasks = tasks.filter { $0.quadrant == targetQuadrant && $0.id != draggedId }
+        var updatedTasksById: [String: TaskItem] = [:]
+        var targetTasks = tasks.filter { $0.quadrant == targetQuadrant && !$0.deleted && $0.id != draggedId }
             .sorted { $0.order < $1.order }
 
-        let targetPos = qTasks.firstIndex(where: { $0.id == targetTaskId }) ?? 0
+        let targetPos = targetTasks.firstIndex(where: { $0.id == targetTaskId }) ?? 0
         let insertIdx = before ? targetPos : targetPos + 1
-        qTasks.insert(tasks[draggedIndex], at: insertIdx)
+        targetTasks.insert(draggedTask, at: min(insertIdx, targetTasks.count))
 
-        for (i, _) in qTasks.enumerated() {
-            qTasks[i].order = i
+        for index in targetTasks.indices {
+            targetTasks[index].order = index
+            updatedTasksById[targetTasks[index].id] = targetTasks[index]
         }
 
-        // 修复源象限的 order 间隙（跨象限拖拽时）
-        var sourceTasks: [TaskItem] = []
         if sourceQuadrant != targetQuadrant {
-            sourceTasks = tasks.filter { $0.quadrant == sourceQuadrant }
+            var sourceTasks = tasks.filter { $0.quadrant == sourceQuadrant && !$0.deleted && $0.id != draggedId }
                 .sorted { $0.order < $1.order }
-            for (i, _) in sourceTasks.enumerated() {
-                sourceTasks[i].order = i
+            for index in sourceTasks.indices {
+                sourceTasks[index].order = index
+                updatedTasksById[sourceTasks[index].id] = sourceTasks[index]
             }
         }
 
-        // 合并回 tasks：目标象限 + 源象限 + 其他象限
-        var allTasks = qTasks
-        if sourceQuadrant != targetQuadrant {
-            allTasks += sourceTasks
-        }
-        let otherQuadrants = sourceQuadrant == targetQuadrant
-            ? [] : [sourceQuadrant, targetQuadrant]
-        let remainingQuadrants = ["q1", "q2", "q3", "q4"].filter { !otherQuadrants.contains($0) }
-        for q in remainingQuadrants {
-            let qItems = tasks.filter { $0.quadrant == q }
-                .sorted { $0.order < $1.order }
-            allTasks += qItems
-        }
-        tasks = allTasks
+        tasks = tasks.map { updatedTasksById[$0.id] ?? $0 }
+        draggedTaskId = nil
         debouncedSave()
     }
 
     /// 移动到象限
     func moveToQuadrant(taskId: String, quadrant: String) {
-        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        guard let index = tasks.firstIndex(where: { $0.id == taskId && !$0.deleted }) else { return }
         let oldQuadrant = tasks[index].quadrant
         guard oldQuadrant != quadrant else { return }
 
+        let maxOrder = tasks.filter { $0.quadrant == quadrant && !$0.deleted }.map { $0.order }.max() ?? -1
         tasks[index].quadrant = quadrant
-        let maxOrder = tasks.filter { $0.quadrant == quadrant }.map { $0.order }.max() ?? -1
         tasks[index].order = maxOrder + 1
+
+        var sourceTasks = tasks.filter { $0.quadrant == oldQuadrant && !$0.deleted }
+            .sorted { $0.order < $1.order }
+        var normalizedById: [String: Int] = [:]
+        for taskIndex in sourceTasks.indices {
+            sourceTasks[taskIndex].order = taskIndex
+            normalizedById[sourceTasks[taskIndex].id] = taskIndex
+        }
+        for taskIndex in tasks.indices {
+            if let normalizedOrder = normalizedById[tasks[taskIndex].id] {
+                tasks[taskIndex].order = normalizedOrder
+            }
+        }
+
+        draggedTaskId = nil
         debouncedSave()
     }
 
@@ -301,13 +283,87 @@ class TaskViewModel: ObservableObject {
 
     private func syncToGitHub() async {
         guard gitHub.isConfigured else { return }
-        let data = PersistedData(from: tasks)
+
+        if isSyncingToGitHub {
+            needsGitHubSyncAfterCurrent = true
+            return
+        }
+
+        isSyncingToGitHub = true
+        defer { isSyncingToGitHub = false }
+
+        repeat {
+            needsGitHubSyncAfterCurrent = false
+            let data = PersistedData(from: tasks)
+            do {
+                try await gitHub.saveData(data)
+                showToast("已同步", type: .success)
+            } catch {
+                print("GitHub 同步失败: \(error.localizedDescription)")
+                showToast("同步失败", type: .error)
+                if !needsGitHubSyncAfterCurrent {
+                    return
+                }
+            }
+        } while needsGitHubSyncAfterCurrent
+    }
+
+    private func syncErrorMessage(_ error: Error) -> String {
+        guard let gitHubError = error as? GitHubError else {
+            return "同步失败: \(error.localizedDescription)"
+        }
+        switch gitHubError {
+        case .httpError(401, _):
+            return "Token 无效或已过期"
+        case .httpError(403, _):
+            return "权限不足或请求受限"
+        case .httpError(404, _):
+            return "仓库、分支或数据文件不可访问"
+        case .httpError(409, _):
+            return "远端数据已变化，请重新同步"
+        case .remoteDataIsNewer:
+            return "远端数据较新，请先同步"
+        default:
+            return "同步失败: \(gitHubError.localizedDescription)"
+        }
+    }
+
+    func forceSyncNow() async {
+        guard gitHub.isConfigured else {
+            showSettings = true
+            showToast("请先连接 GitHub", type: .error)
+            return
+        }
+
+        isLoading = true
+        startLoadingAnimation()
+        defer {
+            stopLoadingAnimation()
+            isLoading = false
+        }
+
+        while isSyncingToGitHub {
+            needsGitHubSyncAfterCurrent = true
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+
         do {
-            try await gitHub.saveData(data)
-            showToast("已同步", type: .success)
+            let remote = try await gitHub.fetchData()
+            let localTs = localStorage.load()?._ts ?? 0
+            if remote._ts > localTs {
+                tasks = remote.allTasks()
+                localStorage.save(remote)
+                showToast("已拉取最新数据", type: .success)
+            } else if localTs > remote._ts {
+                await syncToGitHub()
+            } else {
+                showToast("已是最新", type: .success)
+            }
+            isGitHubConnected = true
         } catch {
-            print("GitHub 同步失败: \(error.localizedDescription)")
-            showToast("同步失败", type: .error)
+            let message = syncErrorMessage(error)
+            print("强制同步失败: \(error.localizedDescription)")
+            showToast(message, type: .error)
         }
     }
 
@@ -414,6 +470,8 @@ class TaskViewModel: ObservableObject {
             if remote._ts > localTs {
                 tasks = remote.allTasks()
                 localStorage.save(remote)
+            } else if localTs > remote._ts {
+                await syncToGitHub()
             }
             isGitHubConnected = true
             settingsMessage = ""

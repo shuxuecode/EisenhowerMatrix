@@ -39,7 +39,7 @@ struct EisenhowerMatrixApp: App {
             CommandMenu("同步") {
                 Button("强制同步") {
                     Task {
-                        await viewModel.initialize()
+                        await viewModel.forceSyncNow()
                     }
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
